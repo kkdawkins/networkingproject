@@ -66,46 +66,35 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(interface);
 
 /* structure to hold the ipv4 header info */
-typedef unsigned long UINT32;
-typedef struct ipv4_hdr_f1 {
-
-UINT32 ver : 4; //Ip version
-UINT32 iphl : 4; //Internet Header Length
-UINT32 tos : 8; //Type Of Service
-UINT32 len : 16; //Total Length
-#if defined(__LITTLE_ENDIAN_BITFIELD)
-        __u8    iphl:4,
-                 version:4; 
-#elif defined (__BIG_ENDIAN_BITFIELD)
-        __u8    version:4,
-                 iphl:4;
-#else
-//#error  "Please fix <asm/byteorder.h>"
-#endif
-
-} __attribute__((packed)) IPV4_HDR_F1;
-typedef struct ipv4_hdr_f2 {
-UINT32 ident : 16; //Identification
-UINT32 flags : 3; //Flags
-UINT32 offset: 13; //Fragment Offset:
-} __attribute__((packed)) IPV4_HDR_F2;
-typedef struct ipv4_hdr_f3 {
-UINT32 ttl : 8; //Time To Live
-UINT32 proto : 8; //Protocol
-UINT32 cksum : 16; //checksum
-} __attribute__((packed)) IPV4_HDR_F3;
 typedef struct ipv4_header {
-IPV4_HDR_F1 f1;
-IPV4_HDR_F2 f2;
-IPV4_HDR_F3 f3;
-UINT32 src; //Source Address
-UINT32 dest; //Destination Address
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+uint8_t iphl:4,
+uint8_t version:4; 
+#elif defined (__BIG_ENDIAN_BITFIELD)
+uint8_t version:4,
+uint8_t iphl:4;
+#else
+#endif
+uint8_t ver : 4; //Ip version
+uint8_t iphl : 4; //Internet Header Length
+uint8_t tos : 8; //Type Of Service
+uint16_t len : 16; //Total Length
+uint16_t ident : 16; //Identification
+uint8_t flags : 3; //Flags
+uint16_t offset: 13; //Fragment Offset:
+uint8_t ttl : 8; //Time To Live
+uint8_t proto : 8; //Protocol
+uint16_t cksum : 16; //checksum
+uint32_t src; //Source Address
+uint32_t dest; //Destination Address
 } __attribute__((packed)) IPV4_HEADER;
 
 
-IPV4_HEADER  *ipv4_hdr; //Declares a struct of type IPV4_HEADER
+IPV4_HEADER  *ipv4_hdr = calloc(1,sizeof(IPV4_HEADER)); //Declares a struct of type IPV4_HEADER
 
-ipv4_hdr = (IPV4_HEADER*)&packet;
+memcpy(ipv4_hdr, packet, sizeof(IPV4_HEADER));
+
+//ipv4_hdr = (IPV4_HEADER*)&packet;
 
 
 	printf("*** -> Received packet of length %d \n",len);
@@ -117,16 +106,16 @@ ipv4_hdr = (IPV4_HEADER*)&packet;
  * Method:
  */
 /// The Following will print out the translated datagram
-printf("Version : %d \n", ipv4_hdr->f1.ver);
-printf("IP Header Length : %d \n", ipv4_hdr->f1.iphl);
-printf("Type of Service : %d \n", ipv4_hdr->f1.tos);
-printf("Size : %d \n", ipv4_hdr->f1.len);
-printf("Identification : %d \n", ipv4_hdr->f2.ident);
-printf("Flags : %x \n", ipv4_hdr->f2.flags);
-printf("Offset : %d \n", ipv4_hdr->f2.offset);
-printf("TTL : %d \n", ipv4_hdr->f3.ttl);
-printf("Protocol : %d \n", ipv4_hdr->f3.proto);
+printf("Version : %d \n", ipv4_hdr->ver);
+printf("IP Header Length : %d \n", ipv4_hdr->iphl);
+printf("Type of Service : %d \n", ipv4_hdr->tos);
+printf("Size : %d \n", ipv4_hdr->len);
+printf("Identification : %d \n", ipv4_hdr->ident);
+printf("Flags : %x \n", ipv4_hdr->flags);
+printf("Offset : %d \n", ipv4_hdr->offset);
+printf("TTL : %d \n", ipv4_hdr->ttl);
+printf("Protocol : %d \n", ipv4_hdr->proto);
 printf("Source IP Addr : %d \n", ipv4_hdr->src);
-//printf("Dest IP Addr : %x \n", ipv4_hdr.dest);
+//printf("Dest IP Addr : %x \n", ipv4_hdr->dest);
 
 }
