@@ -38,7 +38,8 @@ void sr_init(struct sr_instance* sr)
 
 
 
-int isBroadcast(int *destMac){
+int isBroadcast(uint8_t *destMac){
+    printf(" %d ", destMac[0]);
     if((destMac[0] == 0xFF) &&
         (destMac[1] == 0xFF) &&
         (destMac[2] == 0xFF) &&
@@ -79,9 +80,9 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(packet);
     assert(interface);
 
-int* destMac = malloc(6*sizeof(int));
+uint8_t* destMac = malloc(6*sizeof(uint8_t));
 
-memcpy(destMac, packet, 6*sizeof(int));
+memcpy(destMac, packet, 6*sizeof(uint8_t));
 
 //ipv4_hdr = (IPV4_HEADER*)&packet;
     if(isBroadcast(destMac)){
