@@ -13,13 +13,12 @@
 
 #include <stdio.h>
 #include <assert.h>
-
-
+#include <stdlib.h>
+#include <string.h>
 #include "sr_if.h"
 #include "sr_rt.h"
 #include "sr_router.h"
 #include "sr_protocol.h"
-
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
  * Scope:  Global
@@ -36,6 +35,21 @@ void sr_init(struct sr_instance* sr)
     /* Add initialization code here! */
 
 } /* -- sr_init -- */
+
+
+
+int isBroadcast(int *destMac){
+    if((destMac[0] == 0xFF) &&
+        (destMac[1] == 0xFF) &&
+        (destMac[2] == 0xFF) &&
+        (destMac[3] == 0xFF) &&
+        (destMac[4] == 0xFF) &&
+        (destMac[5] == 0xFF)){
+        return 1;
+    }else{
+        return 0;
+    }
+}
 
 
 
@@ -65,57 +79,21 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(packet);
     assert(interface);
 
-/* structure to hold the ipv4 header info */
-typedef struct ipv4_header {
-#if defined(__LITTLE_ENDIAN_BITFIELD)
-uint8_t iphl:4,
-uint8_t version:4; 
-#elif defined (__BIG_ENDIAN_BITFIELD)
-uint8_t version:4,
-uint8_t iphl:4;
-#else
-#endif
-uint8_t ver : 4; //Ip version
-uint8_t iphl : 4; //Internet Header Length
-uint8_t tos : 8; //Type Of Service
-uint16_t len : 16; //Total Length
-uint16_t ident : 16; //Identification
-uint8_t flags : 3; //Flags
-uint16_t offset: 13; //Fragment Offset:
-uint8_t ttl : 8; //Time To Live
-uint8_t proto : 8; //Protocol
-uint16_t cksum : 16; //checksum
-uint32_t src; //Source Address
-uint32_t dest; //Destination Address
-} __attribute__((packed)) IPV4_HEADER;
+int* destMac = malloc(6*sizeof(int));
 
-
-IPV4_HEADER  *ipv4_hdr = calloc(1,sizeof(IPV4_HEADER)); //Declares a struct of type IPV4_HEADER
-
-memcpy(ipv4_hdr, packet, sizeof(IPV4_HEADER));
+memcpy(destMac, packet, 6*sizeof(int));
 
 //ipv4_hdr = (IPV4_HEADER*)&packet;
-
+    if(isBroadcast(destMac)){
+        
+        printf("Recieved Broadcast!\n");
+    }else{
+        printf("did NOT recieve broadcast!\n");
+    }
 
 	printf("*** -> Received packet of length %d \n",len);
 	
 /* end sr_ForwardPacket */
 
-
-/*--------------------------------------------------------------------- 
- * Method:
- */
-/// The Following will print out the translated datagram
-printf("Version : %d \n", ipv4_hdr->ver);
-printf("IP Header Length : %d \n", ipv4_hdr->iphl);
-printf("Type of Service : %d \n", ipv4_hdr->tos);
-printf("Size : %d \n", ipv4_hdr->len);
-printf("Identification : %d \n", ipv4_hdr->ident);
-printf("Flags : %x \n", ipv4_hdr->flags);
-printf("Offset : %d \n", ipv4_hdr->offset);
-printf("TTL : %d \n", ipv4_hdr->ttl);
-printf("Protocol : %d \n", ipv4_hdr->proto);
-printf("Source IP Addr : %d \n", ipv4_hdr->src);
-//printf("Dest IP Addr : %x \n", ipv4_hdr->dest);
 
 }
