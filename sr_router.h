@@ -88,6 +88,7 @@ void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
 void sr_print_if_list(struct sr_instance* );
 
 /* -- sr_arpcache.c -- */
+int init_arp_cache(); // Returns 1 on success
 int check_arp_cache(uint32_t ip);  /* Will return:
                                     *   1  - Specified IP is in cache
                                     *   0  - Specified IP is not in cache

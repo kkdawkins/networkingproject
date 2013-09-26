@@ -27,13 +27,16 @@
  * 
  *---------------------------------------------------------------------*/
 
+
 void sr_init(struct sr_instance* sr) 
 {
     /* REQUIRES */
     assert(sr);
 
     /* Add initialization code here! */
-
+    
+    // We need to initialize the cache here!
+	init_arp_cache();
 } /* -- sr_init -- */
 
 
@@ -136,12 +139,20 @@ printf("Source ethernet address = %02x:%02x:%02x:%02x:%02x:%02x\n",eth->ether_sh
 
 	printf("Target MAC address = %02x:%02x:%02x:%02x:%02x:%02x\n",arp->ar_tha[0],arp->ar_tha[1],arp->ar_tha[2],arp->ar_tha[3],arp->ar_tha[4],arp->ar_tha[5]);
 	
+	
+	
     unsigned char bytes1[4];
     bytes1[0] = arp->ar_tip & 0xFF;
     bytes1[1] = (arp->ar_tip >> 8) & 0xFF;
     bytes1[2] = (arp->ar_tip >> 16) & 0xFF;
     bytes1[3] = (arp->ar_tip >> 24) & 0xFF;	
     printf("Target IP address = %d.%d.%d.%d\n", bytes1[0], bytes1[1], bytes1[2], bytes1[3]);
+    
+/*    
+    if(check_arp_cache(ntohs(arp->ar_tip)) == 1){
+    	printf("Cache Hit!\n"); // ONLY WORKS IF WE TARGET OURSELVES
+    }
+  */  
 
 }
 
