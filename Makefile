@@ -38,7 +38,7 @@ LIBS= $(SOCK) -lm
 PFLAGS= -follow-child-processes=yes -cache-dir=/tmp/${USER}
 PURIFY= purify ${PFLAGS}
 
-sr_SRCS = vnlconn.c sr_router.c sr_main.c  \
+sr_SRCS = vnlconn.c sr_router.c sr_arpcache.c sr_main.c  \
           sr_if.c sr_rt.c sr_vns_comm.c   \
           sr_dumper.c sha1.c
 
