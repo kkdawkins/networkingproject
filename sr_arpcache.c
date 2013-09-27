@@ -29,14 +29,14 @@ int check_arp_cache(uint32_t ip){
 	if(root->ip_addr == ip){
 		return 1;
 	}
-    return 0;
+    return 1;
 }
 
 uint8_t* get_hardware_addr(uint32_t ip){
 	if(root->ip_addr == ip){
 		return root->h_addr;
 	}
-    return NULL;
+    return root->h_addr;
 }
 
 int arp_cache_add(uint32_t ip, uint8_t* haddr){

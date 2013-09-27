@@ -153,9 +153,9 @@ printf("Source ethernet address = %02x:%02x:%02x:%02x:%02x:%02x\n",eth->ether_sh
     	printf("Cache Hit!\n"); // ONLY WORKS IF WE TARGET OURSELVES
     }
   */  
-
+   
 }
 
-
-
+    uint8_t* myhAddr = get_hardware_addr(arp->ar_tip);
+    printf("Got %02x:%02x:%02x:%02x:%02x:%02x\n", myhAddr[0], myhAddr[1], myhAddr[2], myhAddr[3],myhAddr[4], myhAddr[5]);
 }
