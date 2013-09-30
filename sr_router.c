@@ -131,7 +131,7 @@ printf("Source ethernet address = %02x:%02x:%02x:%02x:%02x:%02x\n",eth->ether_sh
 
 /* Calculating IP */
     unsigned char bytes[4];
-    bytes[0] = arp->ar_sip & 0xFF;
+    bytes[0] = 	arp->ar_sip & 0xFF;
     bytes[1] = (arp->ar_sip >> 8) & 0xFF;
     bytes[2] = (arp->ar_sip >> 16) & 0xFF;
     bytes[3] = (arp->ar_sip >> 24) & 0xFF;	
@@ -158,4 +158,75 @@ printf("Source ethernet address = %02x:%02x:%02x:%02x:%02x:%02x\n",eth->ether_sh
 
     uint8_t* myhAddr = get_hardware_addr(arp->ar_tip);
     printf("Got %02x:%02x:%02x:%02x:%02x:%02x\n", myhAddr[0], myhAddr[1], myhAddr[2], myhAddr[3],myhAddr[4], myhAddr[5]);
+
+
+/* GENERATING REPLY */
+
+	printf("ARP REPLY PACKET info ....\n");
+
+	struct sr_ethernet_hdr* eth_reply;	//Ethernet reply object
+	struct sr_arphdr* arp_reply;		//ARP reply object
+	eth_reply = malloc(sizeof(struct sr_ethernet_hdr));
+	arp_reply = malloc(sizeof(struct sr_arphdr));
+// filling destination 
+	eth_reply->ether_dhost[0] = eth->ether_shost[0];
+	eth_reply->ether_dhost[1] = eth->ether_shost[1];
+	eth_reply->ether_dhost[2] = eth->ether_shost[2];
+	eth_reply->ether_dhost[3] = eth->ether_shost[3];
+	eth_reply->ether_dhost[4] = eth->ether_shost[4];
+	eth_reply->ether_dhost[5] = eth->ether_shost[5];
+	printf("Destination ethernet address = %02x:%02x:%02x:%02x:%02x:%02x\n",eth_reply->ether_dhost[0],eth_reply->ether_dhost[1],eth_reply->ether_dhost[2],eth_reply->ether_dhost[3],eth_reply->ether_dhost[4],eth_reply->ether_dhost[5]);
+
+	eth_reply->ether_type = eth->ether_type;
+	printf("Type: 0x%02x\n",ntohs(eth_reply->ether_type));
+	
+	arp_reply->ar_hrd = arp->ar_hrd;
+	printf("Hardware type = 0x%02x\n",ntohs(arp_reply->ar_hrd));
+
+	arp_reply->ar_pro = arp->ar_pro;
+	printf("Protocol type = 0x%02x\n",ntohs(arp_reply->ar_pro));
+
+	arp_reply->ar_hln = arp->ar_hln;
+	printf("Hardware Size = %x\n",arp_reply->ar_hln);
+	
+	arp_reply->ar_pln = arp->ar_pln;
+	printf("Protocol Size = %x\n",arp_reply->ar_pln);
+
+	arp_reply->ar_op = 0x0200;
+	printf("ARP opcode = 0x%02x\n",ntohs(arp_reply->ar_op));
+
+
+	// Sender IP address
+	arp_reply->ar_sip = arp->ar_tip;
+	unsigned char bytes3[4];
+    	bytes3[0] = arp_reply->ar_sip & 0xFF;
+ 	bytes3[1] = (arp_reply->ar_sip >> 8) & 0xFF;
+    	bytes3[2] = (arp_reply->ar_sip >> 16) & 0xFF;
+    	bytes3[3] = (arp_reply->ar_sip >> 24) & 0xFF;	
+    	printf("Sender IP address = %d.%d.%d.%d\n", bytes3[0], bytes3[1], bytes3[2], bytes3[3]);
+	
+	// Target MAC address
+	arp_reply->ar_tha[0] = arp->ar_sha[0];
+	arp_reply->ar_tha[1] = arp->ar_sha[1];
+	arp_reply->ar_tha[2] = arp->ar_sha[2];
+	arp_reply->ar_tha[3] = arp->ar_sha[3];
+	arp_reply->ar_tha[4] = arp->ar_sha[4];
+	arp_reply->ar_tha[5] = arp->ar_sha[5];
+	printf("Target MAC address = %02x:%02x:%02x:%02x:%02x:%02x\n",arp_reply->ar_tha[0],arp_reply->ar_tha[1],arp_reply->ar_tha[2],arp_reply->ar_tha[3],arp_reply->ar_tha[4],arp_reply->ar_tha[5]);
+	
+	// Target IP address
+	arp_reply->ar_tip = arp->ar_sip;
+	unsigned char bytes2[4];
+    	bytes2[0] = arp_reply->ar_tip & 0xFF;
+ 	bytes2[1] = (arp_reply->ar_tip >> 8) & 0xFF;
+    	bytes2[2] = (arp_reply->ar_tip >> 16) & 0xFF;
+    	bytes2[3] = (arp_reply->ar_tip >> 24) & 0xFF;	
+    	printf("Target IP address = %d.%d.%d.%d\n", bytes2[0], bytes2[1], bytes2[2], bytes2[3]);
+
+	
+	
+		
+	
+
+
 }
