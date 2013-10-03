@@ -7,7 +7,7 @@
  * 
  * This file contains all the functions that interact directly
  * with the routing table, as well as the main entry method
- * for routing. 11
+ * for routing. TESTING MERGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
  *
  **********************************************************************/
 
@@ -80,6 +80,15 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 	struct ip* ippkt;
 	ippkt = malloc(sizeof(struct ip));
 	memcpy(ippkt, packet + sizeof(struct sr_ethernet_hdr), sizeof(struct ip));
+
+
+	printf("Header Length = %d\n",ippkt
+->ip_hl);
+	printf("Version = %d\n",ippkt->ip_v);
+
+
+
+
 	return ippkt;
 }
 
