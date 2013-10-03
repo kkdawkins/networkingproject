@@ -77,9 +77,18 @@ int isBroadcast(uint8_t *destMac){
     }
 }
 
-int is_my_interface(uint32_t ip){
+int is_my_interface(uint32_t givenip){
 	// if it is one of my own ill return 0
 	// if we need to packet forward, ill return 1
+	struct sr_if* curr = me;
+	while(curr != NULL){
+		if(curr->ip == givenip){
+			return 0;
+		}
+		curr = curr->next;
+	}
+	
+	return 1;
 }
 
 
@@ -89,8 +98,7 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 	memcpy(ippkt, packet + sizeof(struct sr_ethernet_hdr), sizeof(struct ip));
 
 
-	printf("Header Length = %d\n",ippkt
-->ip_hl);
+	printf("Header Length = %d\n",ippkt->ip_hl);
 	printf("Version = %d\n",ippkt->ip_v);
 
 
@@ -306,7 +314,7 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(interface);
 	
 	me = NULL;
-    me = sr_get_interface(sr,"eth0");
+    me = sr->if_list;
     if(me == NULL){
     	fprintf(stderr,"Failed to discover self.\n");
     	exit(-1);
@@ -318,8 +326,8 @@ void sr_handlepacket(struct sr_instance* sr,
 //	if(isBroadcast(eth->ether_dhost)){
 		if(ntohs(eth->ether_type) == ETHERNET_ARP){
 			struct sr_arphdr* arp = recieve_arp_request(packet);
-			if(me->ip == arp->ar_tip){
-				// The packet was for me, so I can reply
+			if(is_my_interface(arp->ar_tip) == 0){
+				// The packet was for me (or one of my interfaces), so I can reply
 				generate_arp_reply(sr, eth, arp, interface);
 			}else{
 				// The packet was for someone else, so I should 
@@ -339,9 +347,11 @@ void sr_handlepacket(struct sr_instance* sr,
 				printf("It is an ICMP!\n");
 				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
 				memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
-				if(icmp->type == ICMP_ECHO_REQUEST  /* TODO CHECK FOR INTERFACES*/){
+				if((icmp->type == ICMP_ECHO_REQUEST) && (is_my_interface(ipPkt->ip_dst.s_addr) == 0)){
 					printf("Got an ICMP Echo Request!\n");
 					icmp_request();
+				}else{
+					// not for me, must packet forward
 				}
 			}
 		
