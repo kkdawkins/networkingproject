@@ -38,6 +38,7 @@
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
 #define IP_ICMP		0x01
+#define ICMP_ECHO_REQUEST  8
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
  * Scope:  Global
@@ -76,6 +77,11 @@ int isBroadcast(uint8_t *destMac){
     }
 }
 
+int is_my_interface(uint32_t ip){
+	// if it is one of my own ill return 0
+	// if we need to packet forward, ill return 1
+}
+
 
 struct ip*	recieve_ip_packet(uint8_t *packet){
 	struct ip* ippkt;
@@ -91,6 +97,10 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 
 
 	return ippkt;
+}
+
+void icmp_request(){
+
 }
 
 struct sr_ethernet_hdr* recieve_eth_header(uint8_t *packet){
@@ -324,9 +334,15 @@ void sr_handlepacket(struct sr_instance* sr,
 			}
 		}else if(ntohs(eth->ether_type) == ETHERNET_IP){
 			struct ip* ipPkt = recieve_ip_packet(packet);
-			printf("Got an IP Packet! With IP opcode %x\n\n", ipPkt->ip_p);
+			printf("Got an IP Packet (with version %x)! With IP opcode %x\n\n", ipPkt->ip_v,ipPkt->ip_p);
 			if(ipPkt->ip_p == IP_ICMP){
-			
+				printf("It is an ICMP!\n");
+				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
+				memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
+				if(icmp->type == ICMP_ECHO_REQUEST  /* TODO CHECK FOR INTERFACES*/){
+					printf("Got an ICMP Echo Request!\n");
+					icmp_request();
+				}
 			}
 		
 		}else{
