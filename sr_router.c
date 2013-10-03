@@ -1,6 +1,7 @@
 /**********************************************************************
  * file:  sr_router.c 
  * date:  Mon Feb 18 12:50:42 PST 2002  
+ * authors: Kevin Dawkins and Karan Chadha
  * Contact: casado@stanford.edu 
  *
  * Description:
