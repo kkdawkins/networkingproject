@@ -32,10 +32,11 @@
 *	Happy Debugging! :-)
 */
 
-#define DEBUG 0
+#define DEBUG 10
 
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
+#define IP_ICMP		0x01
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
  * Scope:  Global
@@ -76,7 +77,10 @@ int isBroadcast(uint8_t *destMac){
 
 
 struct ip*	recieve_ip_packet(uint8_t *packet){
-	return NULL;
+	struct ip* ippkt;
+	ippkt = malloc(sizeof(struct ip));
+	memcpy(ippkt, packet + sizeof(struct sr_ethernet_hdr), sizeof(struct ip));
+	return ippkt;
 }
 
 struct sr_ethernet_hdr* recieve_eth_header(uint8_t *packet){
@@ -310,14 +314,16 @@ void sr_handlepacket(struct sr_instance* sr,
 			}
 		}else if(ntohs(eth->ether_type) == ETHERNET_IP){
 			struct ip* ipPkt = recieve_ip_packet(packet);
-			printf("Got an IP Packet!\n\n");
-		
+			printf("Got an IP Packet! With IP opcode %x\n\n", ipPkt->ip_p);
+			if(ipPkt->ip_p == IP_ICMP){
+			
+			}
 		
 		}else{
 
 			/* Code for IP packet */
 
-			printf("Not an ARP Packet. opcode = %X\n\n",ntohs(eth->ether_type));
+			printf("Not an ARP or IP Packet. opcode = %X\n\n",ntohs(eth->ether_type));
 			return;
 		}
 //	}
