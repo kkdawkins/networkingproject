@@ -39,6 +39,7 @@
 #define ETHERNET_IP  0x800
 #define IP_ICMP		0x01
 #define ICMP_ECHO_REQUEST  8
+#define ICMP_ECHO_RESPONSE  0
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
  * Scope:  Global
@@ -87,12 +88,13 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 	struct ip* ippkt;
 	ippkt = malloc(sizeof(struct ip));
 	memcpy(ippkt, packet + sizeof(struct sr_ethernet_hdr), sizeof(struct ip));
-
-
-	printf("Header Length = %d\n",ippkt
-->ip_hl);
-	printf("Version = %d\n",ippkt->ip_v);
-
+	//printf("Header Length = %d\n",ippkt->ip_hl);
+	//printf("Version = %d\n",ippkt->ip_v);
+	if (ippkt->ip_v!=4){					// CHECK FOR IPV4 PACKET
+	fprintf(stderr,"Failed to discover self.\n");
+    	exit(-1);
+   	 }
+		
 
 
 
@@ -102,6 +104,12 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 void icmp_request(){
 
 }
+
+void packet_forward(){
+}
+
+
+
 
 struct sr_ethernet_hdr* recieve_eth_header(uint8_t *packet){
 		struct sr_ethernet_hdr* eth;	//Ethernet object
@@ -339,10 +347,38 @@ void sr_handlepacket(struct sr_instance* sr,
 				printf("It is an ICMP!\n");
 				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
 				memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
-				if(icmp->type == ICMP_ECHO_REQUEST  /* TODO CHECK FOR INTERFACES*/){
+				
+
+				// TODO check for whether the destination address is one of the router's addresses
+
+
+				
+				if(icmp->type == ICMP_ECHO_REQUEST  /* TODO YES */){
 					printf("Got an ICMP Echo Request!\n");
 					icmp_request();
 				}
+				else if(icmp->type == ICMP_ECHO_REQUEST  /* TODO NO */){
+					printf("Got an ICMP Echo Request!\n");
+					packet_forward();
+				}
+				else if(icmp->type == ICMP_ECHO_RESPONSE  /* TODO NO */){
+					printf("Got an ICMP Echo RESPONSE!\n");
+					packet_forward();
+				}
+	/*			else if(ipPkt->ip_p == ETHERNET_TCP) {
+		 //printf("TCP Protocol it is");
+		 // TODO check for whether the destination address is one of the router's addresses
+		 if(myIf == 0)
+		 {
+			 //printf("Oops!! Pinged the wrong IP Address!! You are gonna receive Port Unreachable");
+			 PortUnreachable(sr,eh_pkt,ip_pkt,pck_buf,len,interface,3,3);
+			 
+		 }
+		 else if(myIf != 0)
+		 {
+			packet_forward(sr,eh_pkt,ip_pkt,pck_buf,len,interface);
+		 }
+	 }*/
 			}
 		
 		}else{
