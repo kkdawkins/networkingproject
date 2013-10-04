@@ -138,6 +138,9 @@ uint8_t* get_hardware_addr(uint32_t ip){
 }
 
 bool arp_cache_add(uint32_t ip, uint8_t* haddr){
+	struct arp_entry* curr;
+	struct timeval currtime;
+	gettimeofday (&currtime, NULL);
     if(check_arp_cache(ip)){
         // It is already in the cache! 
         // We can either add it again, or update the timer...
@@ -155,5 +158,21 @@ bool arp_cache_add(uint32_t ip, uint8_t* haddr){
     node->h_addr[3] = haddr[3];
     node->h_addr[4] = haddr[4];
     node->h_addr[5] = haddr[5];
+    
+    node->creation = currtime;
+    
+	    
+    if(root == NULL)
+    {
+    	root = node;	
+    }else{
+    	curr = root;
+    	while(curr->next != NULL)
+    	{
+    		curr = curr->next;
+    	}
+    	curr->next = node;
+    }
+    
     return true;
 }
