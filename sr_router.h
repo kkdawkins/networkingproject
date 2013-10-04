@@ -12,6 +12,9 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <sys/time.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "sr_protocol.h"
 #ifdef VNL
@@ -64,6 +67,8 @@ struct sr_instance
 struct arp_entry{
     uint32_t            ip_addr;
     uint8_t             h_addr[ETHER_ADDR_LEN];
+    struct timeval		creation;
+    
     struct arp_entry*   next;
 } arp_entry;
 
@@ -96,7 +101,7 @@ int sr_read_from_server(struct sr_instance* );
 /* -- sr_router.c -- */
 void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
-
+void* cleaner(void* thread);
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
 void sr_set_ether_ip(struct sr_instance* , uint32_t );
@@ -118,5 +123,7 @@ int arp_cache_add(uint32_t ip, uint8_t* hardware); /* Will return:
                                                     * -1 - Table full
                                                     * -2 - Failure
                                                     */
+void arpCacheDeleter();
+void dumparpcache();
 
 #endif /* SR_ROUTER_H */

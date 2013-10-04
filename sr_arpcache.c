@@ -4,23 +4,96 @@
  * Implementation of the ARP cache
  * Kevin Dawkins and Karan Chadha
  */
-#define DEBUG
+#define ARPDEBUG
+typedef int bool;
+#define true 1
+#define false 0
+
 
 struct arp_entry* root;
+
+
+
+bool timeCheck(struct timeval cacheCreationTime){
+	struct timeval currentTime;
+	gettimeofday (&currentTime, NULL);
+	if((currentTime.tv_sec - cacheCreationTime.tv_sec) > 15){
+		return true;
+	}
+	return false;
+}
+
+
+void arpCacheDeleter(){
+	struct arp_entry* curr = NULL;
+	struct arp_entry* temp = NULL; // the one to be deleted
+	struct arp_entry* lookahead = NULL;
+	
+	curr = root;
+	if(curr == NULL){
+		return;
+	}
+	
+	// Clean out the root
+	while((curr != NULL) && (timeCheck(curr->creation) == true)){
+		temp = curr;
+		curr = curr->next;
+		free(temp);
+		root = curr;
+	}
+	
+	// scan the rest, need the lookahead, curr was checked above
+	lookahead = curr->next;
+	while(lookahead != NULL){
+		if(timeCheck(lookahead->creation) == true){
+			if(lookahead->next == NULL)
+			{
+				temp = lookahead;
+				curr->next = NULL;
+				free(temp);
+			}
+			else{
+				temp = lookahead;
+				lookahead = lookahead->next;
+				free(temp);
+				curr->next = lookahead; // this, will increment us because we are moving lookahead
+			}
+		}else{
+			lookahead = lookahead->next;
+			curr = curr->next;
+		}
+	}
+			
+}
+
+/*
+* This function should only be called in debug mode
+* so, guarding prints with debug is redundant.
+*/
+void dumparpcache(){
+	struct arp_entry* curr;
+	curr = root;
+	printf("---Printing ARP Cache---\n");
+	while(curr){
+		printf("IP Addr %d : ", curr->ip_addr);
+		printf("%02x:%02x:%02x:%02x:%02x:%02x\n",curr->h_addr[0],curr->h_addr[1],curr->h_addr[2],curr->h_addr[3],curr->h_addr[4],curr->h_addr[5]);
+	}
+	printf("---End ARP Cache---\n");
+}
 
 int init_arp_cache(){
 	root = NULL;
 	
 	// We will do timer thread start here
 
-#ifdef DEBUG
+#ifdef ARPDEBUG
 	printf("ARP Cache initialized!\n");
 #endif
-	return 1;
+	return true;
 }
 
-int check_arp_cache(uint32_t ip){
-#ifdef DEBUG
+bool check_arp_cache(uint32_t ip){
+#ifdef ARPDEBUG
 	printf("Check: looking for: %d\n", ip);
 #endif
 	struct arp_entry* curr;
@@ -28,15 +101,15 @@ int check_arp_cache(uint32_t ip){
 	curr = root;
 	
 	while(curr != NULL){
-#ifdef DEBUG
+#ifdef ARPDEBUG
 		printf("\t found %d\n",curr->ip_addr);
 #endif
 		if(curr->ip_addr == ip){
-			return 1;
+			return true;
 		}
 		curr = curr->next;
 	}
-    return 0;
+    return false;
 }
 
 
@@ -48,11 +121,11 @@ uint8_t* get_hardware_addr(uint32_t ip){
     struct arp_entry* curr;
 
     curr = root;
-#ifdef DEBUG
+#ifdef ARPDEBUG
 	printf("Get: looking for%d\n", ip);
 #endif
     while(curr != NULL){
-#ifdef DEBUG
+#ifdef ARPDEBUG
 	printf("\t Found: %d\n",curr->ip_addr);
 #endif
         if(curr->ip_addr == ip){
@@ -64,13 +137,13 @@ uint8_t* get_hardware_addr(uint32_t ip){
     return NULL;
 }
 
-int arp_cache_add(uint32_t ip, uint8_t* haddr){
+bool arp_cache_add(uint32_t ip, uint8_t* haddr){
     if(check_arp_cache(ip)){
         // It is already in the cache! 
         // We can either add it again, or update the timer...
-        return 1; // For now just return
+        return true; // For now just return
     }
-#ifdef DEBUG
+#ifdef ARPDEBUG
 	printf("Added %d to ARP cache\n",ip);
 #endif
 
@@ -82,5 +155,5 @@ int arp_cache_add(uint32_t ip, uint8_t* haddr){
     node->h_addr[3] = haddr[3];
     node->h_addr[4] = haddr[4];
     node->h_addr[5] = haddr[5];
-    return 1;
+    return true;
 }

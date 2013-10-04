@@ -33,7 +33,7 @@
 *	Happy Debugging! :-)
 */
 
-#define DEBUG 10
+#define DEBUG 1
 
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
@@ -48,6 +48,8 @@
  * 
  *---------------------------------------------------------------------*/
 
+
+pthread_t arpcleaner;
 struct sr_if* me;
 
 void sr_init(struct sr_instance* sr) 
@@ -60,10 +62,32 @@ void sr_init(struct sr_instance* sr)
     /* Add initialization code here! */
     
     // We need to initialize the cache here!
+    pthread_create(&arpcleaner,NULL,&cleaner,NULL);
 	init_arp_cache();
 } /* -- sr_init -- */
 
 
+void* cleaner(void* thread)
+{
+	// We want the cleaner thread to infinitely clean the cache
+	// Yes, I am actually making an infinite loop
+	while(1)
+	{
+#ifdef DEBUG
+#if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10
+		printf("ARP Cleaner start.\n");
+#endif
+#endif
+		arpCacheDeleter();
+#ifdef DEBUG
+#if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10
+		dumparpcache();
+		printf("ARP Cleaner End.\n");
+#endif
+#endif		
+		sleep(15); // 15 Second timer, per spec
+	}
+}
 
 int isBroadcast(uint8_t *destMac){
     if((destMac[0] == 0xFF) &&
