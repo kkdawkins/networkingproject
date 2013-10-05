@@ -26,14 +26,15 @@
 *	Debug 0 -> off
 *	Debug 1 -> Eth and ARP only
 *	Debug 2 -> Eth and IP only
-*	Debug 3 -> ?
+*	Debug 3 -> Eth and ICMP Request
+*	Debug 4 -> ?
 *
 *	Debug 10 -> ALL On
 *	
 *	Happy Debugging! :-)
 */
 
-#define DEBUG 1
+#define DEBUG 3
 
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
@@ -65,6 +66,41 @@ void sr_init(struct sr_instance* sr)
     pthread_create(&arpcleaner,NULL,&cleaner,NULL);
 	init_arp_cache();
 } /* -- sr_init -- */
+
+
+// The algorithm to calculate the IP checksum was taken from the internet
+// Neither author claims to have created/designed this algorithm
+// Reference: http://www.netfor2.com/ipsum.htm
+/*
+**************************************************************************
+Function: ip_sum_calc
+Description: Calculate the 16 bit IP sum.
+***************************************************************************
+*/
+
+uint16_t ip_sum_calc(uint16_t len_ip_header, uint8_t buff[])
+{
+uint16_t word16;
+uint32_t sum=0;
+uint16_t i;
+    
+	// make 16 bit words out of every two adjacent 8 bit words in the packet
+	// and add them up
+	for (i=0;i<len_ip_header;i=i+2){
+		word16 =((buff[i]<<8)&0xFF00)+(buff[i+1]&0xFF);
+		sum = sum + (uint32_t) word16;	
+	}
+	
+	// take only 16 bits out of the 32 bit sum and add up the carries
+	while (sum>>16)
+	  sum = (sum & 0xFFFF)+(sum >> 16);
+
+	// one's complement the result
+	sum = ~sum;
+	
+return ((uint16_t) sum);
+}
+
 
 
 void* cleaner(void* thread)
@@ -116,6 +152,22 @@ int is_my_interface(uint32_t givenip){
 	return 1;
 }
 
+struct sr_if* Get_Router_Interface(char* interfaceName, struct sr_instance *sr){
+	struct sr_if *curr;
+	curr = sr->if_list;
+	
+	while(curr){
+		if(strcmp(interfaceName, curr->name) == 0){
+			return curr;
+		}
+		curr = curr->next;
+	}
+	
+	return NULL;
+}
+
+
+
 
 struct ip*	recieve_ip_packet(uint8_t *packet){
 	struct ip* ippkt;
@@ -131,8 +183,81 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 	return ippkt;
 }
 
-void icmp_request(){
+void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip* ipPkt, struct sr_icmphdr* icmp, char* interface, uint8_t *packet, unsigned int len){
+	struct sr_if* myinterface;
+	unsigned char *router_host_addr;
+	uint32_t router_host_ip;
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	printf("---ICMP Request has been recieved---\n");
+	printf("---Formulating ICMP Response---\n");
+#endif
+#endif
+	if(is_my_interface(ipPkt->ip_dst.s_addr) == 0){
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+		printf("---ICMP for one of the router's interfaces---\n");
+#endif
+#endif
+		myinterface = Get_Router_Interface(interface, sr);
+		router_host_addr = myinterface->addr;
+		router_host_ip = myinterface->ip;
+	}
+	
+	uint16_t checksum = ntohs(ipPkt->ip_sum);
+	
+	ipPkt->ip_sum = 0; // The IP Checksum calc must be done with checksum = 0
+	
+	if((ip_sum_calc(sizeof(struct ip), (uint8_t*)ipPkt)) != checksum){
+		fprintf(stderr,"Checksum validation failed.\n");
+		return;
+	}
+	
+	// First, we must build a new ethernet header packet
+	struct sr_ethernet_hdr *eth_new = malloc(sizeof(struct sr_ethernet_hdr));
+	eth_new->ether_type = htons(ETHERNET_IP);
+	memcpy(eth_new->ether_dhost, eth->ether_shost, ETHER_ADDR_LEN);
+	memcpy(eth_new->ether_shost, router_host_addr, ETHER_ADDR_LEN);
+	memcpy(packet,eth_new, sizeof(struct sr_ethernet_hdr));
+	
+	//Now we must make a new IP Packet
+	uint32_t temp = ipPkt->ip_src.s_addr;
+	ipPkt->ip_src.s_addr = router_host_ip;
+	ipPkt->ip_dst.s_addr = temp;
+	ipPkt->ip_ttl = 0xFF;
+	ipPkt->ip_sum = htons(ip_sum_calc(sizeof(struct ip), (uint8_t*)ipPkt));
+	
+	// place ip packet into the packet
+	memcpy(packet+sizeof(struct sr_ethernet_hdr), ipPkt, sizeof(struct ip));
 
+	int icmp_payload = len - sizeof(struct sr_ethernet_hdr) - sizeof(struct ip) - sizeof(struct sr_icmphdr);
+    int buff1 = len - sizeof(struct sr_ethernet_hdr) - sizeof(struct ip);
+    int buff2 = sizeof(struct sr_ethernet_hdr) + sizeof(struct ip) + sizeof(struct sr_icmphdr);
+    uint8_t* icmp_buf = malloc(buff1);
+    uint16_t icmp_checksum = ntohs(icmp->checksum);
+
+    memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    memcpy(icmp_buf+sizeof(struct sr_icmphdr),packet+buff2,icmp_payload);
+
+    uint16_t calc_icmp_cs = (ip_sum_calc(buff1,(uint8_t*)icmp_buf));
+
+    if(!(ip_sum_calc(buff1,(uint8_t*)icmp_buf)) == icmp_checksum)
+    {
+		fprintf(stderr,"Checksum validation failed.\n");
+		return;
+    }
+    icmp->type = ICMP_ECHO_RESPONSE;
+    memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    icmp->checksum = htons(ip_sum_calc(buff1,(uint8_t*)icmp_buf));
+    memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    memcpy(packet+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),icmp_buf,buff1);
+    
+    sr_send_packet(sr,packet,len,interface);//send the packet
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	printf("---ICMP Response has been sent---\n");
+#endif
+#endif
 }
 
 void packet_forward(){
@@ -384,7 +509,7 @@ void sr_handlepacket(struct sr_instance* sr,
 				if((icmp->type == ICMP_ECHO_REQUEST) && (is_my_interface(ipPkt->ip_dst.s_addr) == 0)){
 
 					printf("Got an ICMP Echo Request!\n");
-					icmp_request();
+					icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
 				}else if(icmp->type == ICMP_ECHO_REQUEST && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
 					printf("Got an ICMP Echo Request LETS DO PACKET FORWARD!\n");
 					packet_forward();
