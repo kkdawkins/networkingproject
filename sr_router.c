@@ -21,20 +21,7 @@
 #include "sr_router.h"
 #include "sr_protocol.h"
 
-/*
-*	How debug works
-*	Debug 0 -> off
-*	Debug 1 -> Eth and ARP only
-*	Debug 2 -> Eth and IP only
-*	Debug 3 -> Eth and ICMP Request
-*	Debug 4 -> ?
-*
-*	Debug 10 -> ALL On
-*	
-*	Happy Debugging! :-)
-*/
 
-#define DEBUG 1
 
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800

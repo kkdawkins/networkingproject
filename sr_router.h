@@ -87,6 +87,7 @@ struct pb_entry{
 	uint8_t *packet;
 	struct ip* ipPkt;
 	unsigned int len;
+	int dirty;
 	struct pb_entry *next;
 } __attribute__ ((packed)) ;
 
