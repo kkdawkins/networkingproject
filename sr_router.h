@@ -35,6 +35,26 @@
 #define INIT_TTL 255
 #define PACKET_DUMP_SIZE 1024
 
+
+
+/*
+*	How debug works
+*	Debug 0 -> off
+*	Debug 1 -> Eth and ARP only
+*	Debug 2 -> Eth and IP only
+*	Debug 3 -> Eth and ICMP Request
+*	Debug 4 -> Eth and Packet Buffer
+*
+*	Debug 10 -> ALL On
+*	
+*	Happy Debugging! :-)
+*/
+
+#define DEBUG 1
+
+
+
+
 /* forward declare */
 struct sr_if;
 struct sr_rt;
@@ -63,6 +83,12 @@ struct sr_instance
     FILE* logfile;
 };
 
+struct pb_entry{
+	uint8_t *packet;
+	struct ip* ipPkt;
+	unsigned int len;
+	struct pb_entry *next;
+} __attribute__ ((packed)) ;
 
 struct arp_entry{
     uint32_t            ip_addr;
