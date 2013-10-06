@@ -52,7 +52,7 @@
 
 pthread_t arpcleaner;
 struct sr_if* me;
-
+struct packet_buffer* phead;
 void sr_init(struct sr_instance* sr) 
 {
     /* REQUIRES */
@@ -169,6 +169,53 @@ struct sr_if* Get_Router_Interface(char* interfaceName, struct sr_instance *sr){
 
 
 
+char* check_routing_table(uint32_t ip_dst,struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,char* ifname,uint32_t* nextHopIp)
+{
+	printf("Entering the routing table %x",ip_dst);
+	struct sr_rt* rt1 = sr->routing_table;
+	int maxlength = 0;
+	int Length = 0;
+	while(rt1)
+	{
+		//printf("Loop!!");
+		Length = LongestMask(rt1->mask.s_addr);
+		if(((ip_dst & rt1->mask.s_addr) == (rt1->dest.s_addr & rt1->mask.s_addr)) && (Length >= maxlength))
+		{
+			//printf("Loop2 %x",ip_dst);
+			maxlength = Length;
+			*nextHopIp = rt1->gw.s_addr;
+			memcpy(ifname,rt1->interface,sr_IFACE_NAMELEN); 
+		}
+		rt1 = rt1->next;
+	}
+	return ifname;
+}
+
+int LongestMask(uint32_t m)
+{
+	int l = 0;
+	while(m > 0)
+	{
+		l++;
+		m=m<<1;
+	}
+	return l;
+}
+
+void PacketBufferInsertion(uint8_t* pkt,unsigned int len,struct ip* ip1)
+{
+	return;
+}
+
+void CreateARPRequest(struct sr_instance* sr,struct ip* ip_pkt1,
+						char* ifname,unsigned char* ifhw1,uint32_t ifip,uint32_t nexthop)
+{
+return;
+}
+
+
+
+
 struct ip*	recieve_ip_packet(uint8_t *packet){
 	struct ip* ippkt;
 	ippkt = malloc(sizeof(struct ip));
@@ -260,9 +307,102 @@ void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip
 #endif
 }
 
-void packet_forward(){
-}
+// FORWARD THE PACKET IF DESTINATION IS NOT OUR ROUTER
+void packet_forward(struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,struct ip* ip_pkt1,
+					uint8_t* packet,unsigned int len,char* interface)
+{
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	printf("----Packet forwarding>>>>>\n");
+#endif
+#endif
+	char ifname[sr_IFACE_NAMELEN]; // through which forwarding is done
+	int checksum = ntohs(ip_pkt1->ip_sum); // ZERO'ig out Checksum to cal 
+	ip_pkt1->ip_sum = 0;
+	uint8_t* hw = (uint8_t*)malloc(ETHER_ADDR_LEN);
+	//sr->arp_cc = NULL;
+	//uint8_t* pkt1 = (uint8_t*)malloc(len);
+    	uint16_t calc_checksum_ip = (ip_sum_calc(sizeof(struct ip),(uint8_t*)ip_pkt1));
+    	uint32_t* nexthop=(uint32_t*)malloc(sizeof(uint32_t));
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	printf("The calculated IP Checksum of the forwarding packet is %d\n",calc_checksum_ip);
+	return;
+#endif
+#endif
+	if(calc_checksum_ip != checksum)
+    {
 
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+
+sprintf(stderr, "Checksum error.The calculated checksum does not match with the packet's checksum which is %d",checksum);
+return;
+#endif
+#endif
+    }
+	//check in the routing table to find the next destination
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	printf("\n Going to check the if name and the next hop address \n");
+#endif
+#endif
+	char* if1 = check_routing_table(ip_pkt1->ip_dst.s_addr,sr,eh_pkt,ifname,nexthop);
+	memcpy(ifname,if1,sr_IFACE_NAMELEN);
+	//unsigned char* ifhw1 = Get_Router_Interface(ifname,sr);
+	//uint32_t ifip = Retrieve_IP_Address(ifname,sr);
+
+		struct sr_if* interface_temp = Get_Router_Interface(ifname, sr);
+		unsigned char* ifhw1   = interface_temp->addr;
+		uint32_t outer_host_ip = interface_temp->ip;
+
+
+	memcpy(eh_pkt->ether_shost,ifhw1,ETHER_ADDR_LEN);
+	//constructing IP Packet
+	ip_pkt1->ip_ttl=ip_pkt1->ip_ttl-1;
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10	
+	printf("\n The current ttl count is %x \n",ip_pkt1->ip_ttl);
+#endif
+#endif
+	ip_pkt1->ip_sum = htons(ip_sum_calc(sizeof(struct ip),(uint8_t*)ip_pkt1));
+	uint16_t check = ip_pkt1->ip_sum;
+#ifdef DEBUG
+#if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	printf("\n The calculated IP Checksum of the forwarding packet is %d \n",check);
+#endif
+#endif
+	arp_cache_add(ip_pkt1->ip_src.s_addr,eh_pkt->ether_shost);
+	//If destination address present in arpcache, send the packet accordingly.
+	//PrintEntriesInArpCache();
+
+	// DUMPING ARP CACHE TO SEE THE ENTRIES
+	dumparpcache();
+	   				// IF NOT PRESENT IN CACHE DO PACKETBUFFER AND ARPREQUEST 
+	if(check_arp_cache(ip_pkt1->ip_dst.s_addr) == 0) 
+	{
+		memcpy(eh_pkt->ether_shost,ifhw1,ETHER_ADDR_LEN);
+		memcpy(packet,eh_pkt,sizeof(struct sr_ethernet_hdr));
+		memcpy(packet+sizeof(struct sr_ethernet_hdr),ip_pkt1,sizeof(struct ip));
+		printf("Not present in the cache");
+		//PacketBufferInsertion(packet,len,ip_pkt1);	// IMPLEMENT PACKETBUFFER
+		printf("invoking arp request function");	// IMPLEMENT ARPREQUEST AND SEND THE PACKET
+
+		//CreateARPRequest(sr,ip_pkt1,ifname,ifhw1,ifip,*nexthop);
+	}
+	else 
+	{					// IF PRESENT IN ARP CACHE SEND THE PACKET TO THE DEST
+			 printf("Hurray I have received ICMP Echo Response!!");
+			// RetrieveFromArpcache(ntohl(ip_pkt1->ip_dst.s_addr),hw);
+			 hw = get_hardware_addr(ntohl(ip_pkt1->ip_dst.s_addr));
+			 struct sr_ethernet_hdr* eh = eh_pkt;
+			 memcpy(eh->ether_shost,ifhw1,ETHER_ADDR_LEN);
+			 memcpy(eh->ether_dhost,hw,ETHER_ADDR_LEN);
+			 memcpy(packet,eh,sizeof(struct sr_ethernet_hdr));
+			 sr_send_packet(sr,packet,len,ifname);
+	 }
+	return;
+}
 
 
 
@@ -512,11 +652,11 @@ void sr_handlepacket(struct sr_instance* sr,
 					icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
 				}else if(icmp->type == ICMP_ECHO_REQUEST && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
 					printf("Got an ICMP Echo Request LETS DO PACKET FORWARD!\n");
-					packet_forward();
+					packet_forward(sr,eth,ipPkt,interface,packet,len);
 				}
 				else if(icmp->type == ICMP_ECHO_RESPONSE && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
 					printf("Got an ICMP Echo RESPONSE!\n");
-					packet_forward();
+					packet_forward(sr,eth,ipPkt,interface,packet,len);
 				}
 	/*			else if(ipPkt->ip_p == ETHERNET_TCP) {
 		 //printf("TCP Protocol it is");

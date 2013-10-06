@@ -76,7 +76,7 @@ void dumparpcache(){
 	printf("---Printing ARP Cache---\n");
 	while(curr){
 		printf("IP Addr %d : ", curr->ip_addr);
-		printf("%02x:%02x:%02x:%02x:%02x:%02x\n",curr->h_addr[0],curr->h_addr[1],curr->h_addr[2],curr->h_addr[3],curr->h_addr[4],curr->h_addr[5]);
+		printf("%02x:%02x:%02x:%02x:%02x:%02x\n",curr->h_addr[0],curr->h_addr[1],curr->h_addr[2],curr->h_addr[3],curr->h_addr[4],curr->h_addr[5]);break;
 	}
 	printf("---End ARP Cache---\n");
 }
