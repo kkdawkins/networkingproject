@@ -137,13 +137,32 @@ uint8_t* get_hardware_addr(uint32_t ip){
     return NULL;
 }
 
+/*
+* Once again - assumed called AFTER check_arp_cache
+*/
+void updateARPCacheEntry(uint32_t ip){
+	struct arp_entry *curr;
+	struct timeval currtime;
+	gettimeofday(&currtime, NULL);
+	curr = root;
+	while(curr != NULL){
+		if(curr->ip_addr == ip){
+			curr->creation = currtime;
+			return;
+		}	
+	}
+}
+
 bool arp_cache_add(uint32_t ip, uint8_t* haddr){
 	struct arp_entry* curr;
 	struct timeval currtime;
 	gettimeofday (&currtime, NULL);
     if(check_arp_cache(ip)){
-        // It is already in the cache! 
-        // We can either add it again, or update the timer...
+        // The entry is already in the ARP cache, so we must update the timestamp
+#ifdef ARPDEBUG
+		printf("Already in ARP Cache, updating timestamp.\n");
+#endif
+        updateARPCacheEntry(ip);
         return true; // For now just return
     }
 #ifdef ARPDEBUG
