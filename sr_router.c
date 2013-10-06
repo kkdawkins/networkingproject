@@ -38,6 +38,7 @@
 
 
 pthread_t arpcleaner;
+pthread_t pbcleaner;
 struct sr_if* me;
 struct packet_buffer* phead;
 void sr_init(struct sr_instance* sr) 
@@ -51,7 +52,9 @@ void sr_init(struct sr_instance* sr)
     
     // We need to initialize the cache here!
     pthread_create(&arpcleaner,NULL,&cleaner,NULL);
+    pthread_create(&pbcleaner, NULL,&packetbufferCleaner,NULL);
 	init_arp_cache();
+	init_packet_buffer();
 } /* -- sr_init -- */
 
 
@@ -110,6 +113,27 @@ void* cleaner(void* thread)
 #endif		
 		sleep(15); // 15 Second timer, per spec
 	}
+}
+
+void* packetbufferCleaner(void* thread){
+	// We want the cleaner thread to infinitely clean the cache
+	// Yes, I am actually making an infinite loop
+	while(1)
+	{
+#ifdef DEBUG
+#if ((DEBUG > 3) && (DEBUG < 5)) || DEBUG == 10
+		printf("PacketBuffer Cleaner start.\n");
+#endif
+#endif
+		packet_buffer_cleaner();
+#ifdef DEBUG
+#if ((DEBUG > 3) && (DEBUG < 5)) || DEBUG == 10
+
+		printf("PacketBuffer Cleaner End.\n");
+#endif
+#endif		
+		sleep(10); // 15 Second timer, per spec
+	}	
 }
 
 int isBroadcast(uint8_t *destMac){
@@ -187,11 +211,6 @@ int LongestMask(uint32_t m)
 		m=m<<1;
 	}
 	return l;
-}
-
-void PacketBufferInsertion(uint8_t* pkt,unsigned int len,struct ip* ip1)
-{
-	return;
 }
 
 void CreateARPRequest(struct sr_instance* sr,struct ip* ip_pkt1,
@@ -273,7 +292,7 @@ void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip
     memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
     memcpy(icmp_buf+sizeof(struct sr_icmphdr),packet+buff2,icmp_payload);
 
-    uint16_t calc_icmp_cs = (ip_sum_calc(buff1,(uint8_t*)icmp_buf));
+    //uint16_t calc_icmp_cs = (ip_sum_calc(buff1,(uint8_t*)icmp_buf));
 
     if(!(ip_sum_calc(buff1,(uint8_t*)icmp_buf)) == icmp_checksum)
     {
@@ -341,7 +360,7 @@ return;
 
 		struct sr_if* interface_temp = Get_Router_Interface(ifname, sr);
 		unsigned char* ifhw1   = interface_temp->addr;
-		uint32_t outer_host_ip = interface_temp->ip;
+	//	uint32_t outer_host_ip = interface_temp->ip;
 
 
 	memcpy(eh_pkt->ether_shost,ifhw1,ETHER_ADDR_LEN);
@@ -353,9 +372,10 @@ return;
 #endif
 #endif
 	ip_pkt1->ip_sum = htons(ip_sum_calc(sizeof(struct ip),(uint8_t*)ip_pkt1));
-	uint16_t check = ip_pkt1->ip_sum;
+	
 #ifdef DEBUG
 #if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
+	uint16_t check = ip_pkt1->ip_sum;
 	printf("\n The calculated IP Checksum of the forwarding packet is %d \n",check);
 #endif
 #endif
@@ -372,7 +392,7 @@ return;
 		memcpy(packet,eh_pkt,sizeof(struct sr_ethernet_hdr));
 		memcpy(packet+sizeof(struct sr_ethernet_hdr),ip_pkt1,sizeof(struct ip));
 		printf("Not present in the cache");
-		//PacketBufferInsertion(packet,len,ip_pkt1);	// IMPLEMENT PACKETBUFFER
+		packet_buffer_add(packet,len,ip_pkt1);	// IMPLEMENT PACKETBUFFER
 		printf("invoking arp request function");	// IMPLEMENT ARPREQUEST AND SEND THE PACKET
 
 		//CreateARPRequest(sr,ip_pkt1,ifname,ifhw1,ifip,*nexthop);
@@ -380,8 +400,7 @@ return;
 	else 
 	{					// IF PRESENT IN ARP CACHE SEND THE PACKET TO THE DEST
 			 printf("Hurray I have received ICMP Echo Response!!");
-			// RetrieveFromArpcache(ntohl(ip_pkt1->ip_dst.s_addr),hw);
-			 hw = get_hardware_addr(ntohl(ip_pkt1->ip_dst.s_addr));
+			 hw = get_hardware_addr(ip_pkt1->ip_dst.s_addr);
 			 struct sr_ethernet_hdr* eh = eh_pkt;
 			 memcpy(eh->ether_shost,ifhw1,ETHER_ADDR_LEN);
 			 memcpy(eh->ether_dhost,hw,ETHER_ADDR_LEN);
@@ -640,11 +659,11 @@ void sr_handlepacket(struct sr_instance* sr,
 					icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
 				}else if(icmp->type == ICMP_ECHO_REQUEST && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
 					printf("Got an ICMP Echo Request LETS DO PACKET FORWARD!\n");
-					packet_forward(sr,eth,ipPkt,interface,packet,len);
+					packet_forward(sr,eth,ipPkt,packet,len,interface);
 				}
 				else if(icmp->type == ICMP_ECHO_RESPONSE && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
 					printf("Got an ICMP Echo RESPONSE!\n");
-					packet_forward(sr,eth,ipPkt,interface,packet,len);
+					packet_forward(sr,eth,ipPkt,packet,len,interface);
 				}
 	/*			else if(ipPkt->ip_p == ETHERNET_TCP) {
 		 //printf("TCP Protocol it is");

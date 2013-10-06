@@ -35,7 +35,9 @@
 #define INIT_TTL 255
 #define PACKET_DUMP_SIZE 1024
 
-
+typedef int bool;
+#define true 1
+#define false 0
 
 /*
 *	How debug works
@@ -129,6 +131,11 @@ int sr_read_from_server(struct sr_instance* );
 void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void* cleaner(void* thread);
+void* packetbufferCleaner(void* thread);
+int LongestMask(uint32_t m);
+void packet_forward(struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,struct ip* ip_pkt1,uint8_t* packet,unsigned int len,char* interface);
+
+
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
 void sr_set_ether_ip(struct sr_instance* , uint32_t );
@@ -152,5 +159,11 @@ int arp_cache_add(uint32_t ip, uint8_t* hardware); /* Will return:
                                                     */
 void arpCacheDeleter();
 void dumparpcache();
+
+// packet buffer files
+void packet_buffer_cleaner();
+bool init_packet_buffer();
+struct pb_entry* packet_buffer_retrieve(uint32_t);
+bool packet_buffer_add(uint8_t* , unsigned int , struct ip*);
 
 #endif /* SR_ROUTER_H */

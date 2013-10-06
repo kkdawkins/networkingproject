@@ -7,7 +7,7 @@ typedef int bool;
 
 #undef PBDEBUG
 #ifdef DEBUG
-#if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10
+#if ((DEBUG > 3) && (DEBUG < 5)) || DEBUG == 10
 #define PBDEBUG
 #endif
 #endif
@@ -32,7 +32,9 @@ void packet_buffer_cleaner(){
 	struct pb_entry *curr;
 	struct pb_entry *temp;
 	struct pb_entry *lookahead;
-	
+#ifdef PBDEBUG
+	printf("Packet buffer is being cleaned!\n");
+#endif	
 	curr = pb_root;
 	if(curr == NULL){
 		return;
