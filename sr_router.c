@@ -34,7 +34,7 @@
 *	Happy Debugging! :-)
 */
 
-#define DEBUG 3
+#define DEBUG 1
 
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
@@ -498,6 +498,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		}else if(ntohs(eth->ether_type) == ETHERNET_IP){
 			struct ip* ipPkt = recieve_ip_packet(packet);
 			printf("Got an IP Packet (with version %x)! With IP opcode %x\n\n", ipPkt->ip_v,ipPkt->ip_p);
+			arp_cache_add(ipPkt->ip_src.s_addr, eth->ether_shost);
 			if(ipPkt->ip_p == IP_ICMP){
 				printf("It is an ICMP!\n");
 				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
