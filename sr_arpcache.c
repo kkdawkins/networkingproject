@@ -156,7 +156,8 @@ void updateARPCacheEntry(uint32_t ip){
 		if(curr->ip_addr == ip){
 			curr->creation = currtime;
 			return;
-		}	
+		}
+		curr = curr->next;	
 	}
 }
 

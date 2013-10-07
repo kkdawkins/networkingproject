@@ -55,7 +55,7 @@ void sr_init(struct sr_instance* sr)
     
     // We need to initialize the cache here!
     pthread_create(&arpcleaner,NULL,&cleaner,NULL);
-    pthread_create(&pbcleaner, NULL,&packetbufferCleaner,NULL);
+    //pthread_create(&pbcleaner, NULL,&packetbufferCleaner,NULL);
 	init_arp_cache();
 	init_packet_buffer();
 } /* -- sr_init -- */
@@ -402,7 +402,7 @@ void packet_forward(struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,struct
 #ifdef DEBUG
 #if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
 	printf("The calculated IP Checksum of the forwarding packet is %d\n",calc_checksum_ip);
-	return;
+	//return;
 #endif
 #endif
 	if(calc_checksum_ip != checksum)
@@ -411,7 +411,7 @@ void packet_forward(struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,struct
 #ifdef DEBUG
 #if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
 
-sprintf(stderr, "Checksum error.The calculated checksum does not match with the packet's checksum which is %d",checksum);
+fprintf(stderr, "Checksum error.The calculated checksum does not match with the packet's checksum which is %d",checksum);
 return;
 #endif
 #endif
@@ -505,6 +505,7 @@ struct sr_arphdr* recieve_arp_request(uint8_t *packet){
 	// Create the ARP struct
 	arp = malloc(sizeof(struct sr_arphdr));
 	memcpy(arp, packet + sizeof(struct sr_ethernet_hdr), sizeof(struct sr_arphdr));
+    printf("--------Start ARP Request\n");
 #ifdef DEBUG
 #if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10
 	printf("Hardware type = 0x%02x\n",ntohs(arp->ar_hrd));
@@ -541,7 +542,8 @@ struct sr_arphdr* recieve_arp_request(uint8_t *packet){
 
 
 int generate_arp_reply(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct sr_arphdr* arp, char *interface){
-
+	
+	struct sr_if* myinterface;
 
 
 	struct sr_ethernet_hdr* eth_reply;	//Ethernet reply object
@@ -556,13 +558,15 @@ int generate_arp_reply(struct sr_instance* sr, struct sr_ethernet_hdr* eth, stru
 	eth_reply->ether_dhost[4] = eth->ether_shost[4];
 	eth_reply->ether_dhost[5] = eth->ether_shost[5];
 
+	myinterface = Get_Router_Interface(interface, sr);
+	
 
-	eth_reply->ether_shost[0] = me->addr[0];
-	eth_reply->ether_shost[1] = me->addr[1];
-	eth_reply->ether_shost[2] = me->addr[2];
-	eth_reply->ether_shost[3] = me->addr[3];
-	eth_reply->ether_shost[4] = me->addr[4];
-	eth_reply->ether_shost[5] = me->addr[5];
+	eth_reply->ether_shost[0] = myinterface->addr[0];
+	eth_reply->ether_shost[1] = myinterface->addr[1];
+	eth_reply->ether_shost[2] = myinterface->addr[2];
+	eth_reply->ether_shost[3] = myinterface->addr[3];
+	eth_reply->ether_shost[4] = myinterface->addr[4];
+	eth_reply->ether_shost[5] = myinterface->addr[5];
 
 
 	eth_reply->ether_type = eth->ether_type;
@@ -610,12 +614,7 @@ int generate_arp_reply(struct sr_instance* sr, struct sr_ethernet_hdr* eth, stru
 	memcpy(buffer + sizeof(struct sr_ethernet_hdr), arp_reply, sizeof(struct sr_arphdr));
 	
 	//printf("Size of packet I am sending %d\n", sizeof(buffer));
-	
-	int ret = sr_send_packet(sr, buffer, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arphdr), interface);
-	if(ret < 0){
-		fprintf(stderr, "sr_send_packet failed.\n");
-		exit(-1);
-	}
+
 		
 #ifdef DEBUG
 #if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10	
@@ -629,7 +628,7 @@ int generate_arp_reply(struct sr_instance* sr, struct sr_ethernet_hdr* eth, stru
  	bytes2[1] = (arp_reply->ar_tip >> 8) & 0xFF;
     	bytes2[2] = (arp_reply->ar_tip >> 16) & 0xFF;
     	bytes2[3] = (arp_reply->ar_tip >> 24) & 0xFF;
-	printf("ARP REPLY PACKET info ....\n");
+	printf("\nARP REPLY PACKET info ....\n");
     printf("Source ethernet address = %02x:%02x:%02x:%02x:%02x:%02x\n",
 			eth_reply->ether_shost[0],eth_reply->ether_shost[1],eth_reply->ether_shost[2],
 			eth_reply->ether_shost[3],eth_reply->ether_shost[4],eth_reply->ether_shost[5]);
@@ -649,11 +648,50 @@ int generate_arp_reply(struct sr_instance* sr, struct sr_ethernet_hdr* eth, stru
 	printf("Target MAC address = %02x:%02x:%02x:%02x:%02x:%02x\n",
 			arp_reply->ar_tha[0],arp_reply->ar_tha[1],arp_reply->ar_tha[2],
 			arp_reply->ar_tha[3],arp_reply->ar_tha[4],arp_reply->ar_tha[5]);
-    printf("Target IP address = %d.%d.%d.%d\n", bytes2[0], bytes2[1], bytes2[2], bytes2[3]);	
+    printf("Target IP address = %d.%d.%d.%d\n", bytes2[0], bytes2[1], bytes2[2], bytes2[3]);
+    printf("Interface %s\n", interface);	
 	printf("------End ARP Reply \n\n");
 #endif	
 #endif
+
+	
+	int ret = sr_send_packet(sr, buffer, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arphdr), interface);
+	if(ret < 0){
+		fprintf(stderr, "sr_send_packet failed.\n");
+		exit(-1);
+	}
+
+
 	return 1;
+}
+
+
+void ProcessQeuedPackets(struct sr_instance* sr, struct sr_ethernet_hdr *eth, uint32_t ip, char *interface){
+	uint8_t* hwaddr = NULL;
+	struct pb_entry* pb = NULL;
+	struct sr_ethernet_hdr *foo = malloc(sizeof(struct sr_ethernet_hdr));
+	if(check_arp_cache(ip) == 1){
+		hwaddr = get_hardware_addr(ip);
+	}
+	
+	pb = packet_buffer_retrieve(ip);
+	
+	if(hwaddr == NULL || pb == NULL){
+		fprintf(stderr,"Failed to retrieve hw addr or packet from buffers.\n");
+		return;
+	}
+	
+	memcpy(pb->packet, hwaddr, ETHER_ADDR_LEN);
+	
+	memcpy(foo, pb->packet, sizeof(struct sr_ethernet_hdr));
+	
+	printf("process interface  %s\n", interface);
+	DebugMAC(foo->ether_shost);
+	printf("\n");
+	
+	
+	sr_send_packet(sr, pb->packet, pb->len, interface);
+	
 }
 
 
@@ -692,14 +730,14 @@ void sr_handlepacket(struct sr_instance* sr,
 	
 	struct sr_ethernet_hdr* eth = recieve_eth_header(packet);
 	//struct sr_arphdr* arp = recieve_arp_request(packet);
-	
 //	if(isBroadcast(eth->ether_dhost)){
 		if(ntohs(eth->ether_type) == ETHERNET_ARP){
-			struct sr_arphdr* arp = recieve_arp_request(packet);
+            struct sr_arphdr* arp = recieve_arp_request(packet);
 			if(ntohs(arp->ar_op) == ETHERNET_ARP_REQUEST){
 				if(is_my_interface(arp->ar_tip) == 0){
 					// The packet was for me (or one of my interfaces), so I can reply
-					generate_arp_reply(sr, eth, arp, interface);
+					printf("3939 ARP request (self)\n");
+                    generate_arp_reply(sr, eth, arp, interface);
 				}else{
 					// The packet was for someone else, so I should 
 					// 1. Check the cache
@@ -713,11 +751,17 @@ void sr_handlepacket(struct sr_instance* sr,
 				}
 			}
 			else if(ntohs(arp->ar_op) == ETHERNET_ARP_RESPONSE){
-				printf("\n\nGot ARP Response\n\n");
+				printf("\n\n3939Got ARP Response\n\n");
+				
+				arp_cache_add(arp->ar_sip, arp->ar_sha);
+				
+				ProcessQeuedPackets(sr, eth, arp->ar_sip, interface);
+				
 				// add to arp cache
 				// process the stored packet
 			}
 		}else if(ntohs(eth->ether_type) == ETHERNET_IP){
+            printf("3939 IP Packet\n");
 			struct ip* ipPkt = recieve_ip_packet(packet);
 			printf("Got an IP Packet (with version %x)! With IP opcode %x\n\n", ipPkt->ip_v,ipPkt->ip_p);
 			arp_cache_add(ipPkt->ip_src.s_addr, eth->ether_shost);

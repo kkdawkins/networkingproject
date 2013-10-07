@@ -52,7 +52,7 @@ typedef int bool;
 *	Happy Debugging! :-)
 */
 
-#define DEBUG 1
+#define DEBUG 10
 
 
 

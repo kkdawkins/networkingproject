@@ -1,6 +1,6 @@
 #include "sr_router.h"
 #include <stdlib.h>
-
+#include <string.h>
 typedef int bool;
 #define true 1
 #define false 0
@@ -46,6 +46,7 @@ void packet_buffer_cleaner(){
 		curr = curr->next;
 		free(temp);
 		pb_root = curr;
+		//curr = curr->next;
 	}
 	
 	if(pb_root == NULL){
@@ -88,6 +89,7 @@ struct pb_entry* packet_buffer_retrieve(uint32_t ipaddr){
 			curr->dirty = 1;
 			return curr;
 		}
+		curr = curr->next;
 	}
 	return NULL;
 }
@@ -96,7 +98,10 @@ struct pb_entry* packet_buffer_retrieve(uint32_t ipaddr){
 bool packet_buffer_add(uint8_t* pkt, unsigned int len, struct ip *ipPkt){
 	struct pb_entry *node = malloc(sizeof(struct pb_entry));
 	
-	node->packet = pkt;
+	node->packet = malloc(len);
+	memcpy(node->packet, pkt, len);
+	
+	//node->packet = pkt;
 	node->len = len;
 	node->ipPkt = ipPkt;
 	node->dirty = 0;
