@@ -22,12 +22,15 @@
 #include "sr_protocol.h"
 
 
-
+#define ETHERNET_ARP_REQUEST 1
+#define ETHERNET_ARP_RESPONSE 2
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
 #define IP_ICMP		0x01
 #define ICMP_ECHO_REQUEST  8
 #define ICMP_ECHO_RESPONSE  0
+#define ARP_LEN 28
+#define ETHER_ADDR_HDR 14
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
  * Scope:  Global
@@ -173,7 +176,7 @@ struct sr_if* Get_Router_Interface(char* interfaceName, struct sr_instance *sr){
 		}
 		curr = curr->next;
 	}
-	
+	fprintf(stderr,"\nhave a problem\n");
 	return NULL;
 }
 
@@ -192,9 +195,19 @@ char* check_routing_table(uint32_t ip_dst,struct sr_instance* sr,struct sr_ether
 		Length = LongestMask(rt1->mask.s_addr);
 		if(((ip_dst & rt1->mask.s_addr) == (rt1->dest.s_addr & rt1->mask.s_addr)) && (Length >= maxlength))
 		{
-			//printf("Loop2 %x",ip_dst);
+			
 			maxlength = Length;
 			*nextHopIp = rt1->gw.s_addr;
+			unsigned char bytes[4];
+			     bytes[0] = 	rt1->gw.s_addr & 0xFF;
+				bytes[1] = (rt1->gw.s_addr >> 8) & 0xFF;
+				bytes[2] = (rt1->gw.s_addr >> 16) & 0xFF;
+				bytes[3] = (rt1->gw.s_addr>> 24) & 0xFF;	  
+				printf("\nin CRT next hop = %d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]); 
+				
+			printf("--- Printing routing entry \n");
+			sr_print_routing_entry(rt1);
+			printf("---\n");
 			memcpy(ifname,rt1->interface,sr_IFACE_NAMELEN); 
 		}
 		rt1 = rt1->next;
@@ -216,7 +229,63 @@ int LongestMask(uint32_t m)
 void CreateARPRequest(struct sr_instance* sr,struct ip* ip_pkt1,
 						char* ifname,unsigned char* ifhw1,uint32_t ifip,uint32_t nexthop)
 {
-return;
+	printf("\n\nCreating ARP Request!\n\n");
+    printf("ifname %s\n", ifname);
+    DebugMAC(ifhw1);
+    unsigned char bytes[4];
+    bytes[0] = 	ifip & 0xFF;
+    bytes[1] = (ifip >> 8) & 0xFF;
+    bytes[2] = (ifip >> 16) & 0xFF;
+    bytes[3] = (ifip >> 24) & 0xFF;	
+    printf("\nfip = %d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]); 
+     
+	
+	if(nexthop == 0){
+		nexthop = ip_pkt1->ip_dst.s_addr;
+	}
+	
+    //printf("next hop: %u\n",nexthop);
+	struct sr_ethernet_hdr *eth;
+	eth = malloc(sizeof(struct sr_ethernet_hdr));
+	
+	struct sr_arphdr *arp;
+	arp = malloc(sizeof(struct sr_arphdr));
+	
+	int pktLen = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arphdr);
+	
+	uint8_t* packet;
+	packet = malloc(pktLen);
+	
+	memcpy(eth->ether_shost, ifhw1, ETHER_ADDR_LEN);
+	eth->ether_type = htons(ETHERNET_ARP);
+	
+	memcpy(arp->ar_sha, ifhw1, ETHER_ADDR_LEN);
+	arp->ar_sip = ifip;
+	
+	arp->ar_tha[0] = 0x00;
+	arp->ar_tha[1] = 0x00;
+	arp->ar_tha[2] = 0x00;
+	arp->ar_tha[3] = 0x00;
+	arp->ar_tha[4] = 0x00;
+	arp->ar_tha[5] = 0x00;
+	
+	eth->ether_dhost[0] = 0xFF;
+	eth->ether_dhost[1] = 0xFF;
+	eth->ether_dhost[2] = 0xFF;
+	eth->ether_dhost[3] = 0xFF;
+	eth->ether_dhost[4] = 0xFF;
+	eth->ether_dhost[5] = 0xFF;
+	
+	
+	arp->ar_tip = nexthop;
+	arp->ar_hrd = htons(ARPHDR_ETHER);
+	arp->ar_hln = 6;
+	arp->ar_op = htons(ARP_REQUEST);
+	arp->ar_pln = 4;
+	arp->ar_pro = htons(ETHERNET_IP);
+	memcpy(packet, eth, ETHER_ADDR_HDR);
+	memcpy(packet + sizeof(struct sr_ethernet_hdr), arp, ARP_LEN);
+	sr_send_packet(sr, packet, pktLen, ifname);
 }
 
 
@@ -356,7 +425,7 @@ return;
 	char* if1 = check_routing_table(ip_pkt1->ip_dst.s_addr,sr,eh_pkt,ifname,nexthop);
 	memcpy(ifname,if1,sr_IFACE_NAMELEN);
 	//unsigned char* ifhw1 = Get_Router_Interface(ifname,sr);
-	//uint32_t ifip = Retrieve_IP_Address(ifname,sr);
+	uint32_t ifip = Get_Router_Interface(ifname,sr)->ip;
 
 		struct sr_if* interface_temp = Get_Router_Interface(ifname, sr);
 		unsigned char* ifhw1   = interface_temp->addr;
@@ -395,7 +464,7 @@ return;
 		packet_buffer_add(packet,len,ip_pkt1);	// IMPLEMENT PACKETBUFFER
 		printf("invoking arp request function");	// IMPLEMENT ARPREQUEST AND SEND THE PACKET
 
-		//CreateARPRequest(sr,ip_pkt1,ifname,ifhw1,ifip,*nexthop);
+		CreateARPRequest(sr,ip_pkt1,ifname,ifhw1,ifip,*nexthop);
 	}
 	else 
 	{					// IF PRESENT IN ARP CACHE SEND THE PACKET TO THE DEST
@@ -627,19 +696,26 @@ void sr_handlepacket(struct sr_instance* sr,
 //	if(isBroadcast(eth->ether_dhost)){
 		if(ntohs(eth->ether_type) == ETHERNET_ARP){
 			struct sr_arphdr* arp = recieve_arp_request(packet);
-			if(is_my_interface(arp->ar_tip) == 0){
-				// The packet was for me (or one of my interfaces), so I can reply
-				generate_arp_reply(sr, eth, arp, interface);
-			}else{
-				// The packet was for someone else, so I should 
-				// 1. Check the cache
-				// 2. If not in cache, broadcast to the rest to figure out
-				if(check_arp_cache(arp->ar_tip) == 1){
-					// it is in the cache
+			if(ntohs(arp->ar_op) == ETHERNET_ARP_REQUEST){
+				if(is_my_interface(arp->ar_tip) == 0){
+					// The packet was for me (or one of my interfaces), so I can reply
+					generate_arp_reply(sr, eth, arp, interface);
 				}else{
-					// need to send a broadcast message
-					printf("Recieved a packet that was not in cache\n");
+					// The packet was for someone else, so I should 
+					// 1. Check the cache
+					// 2. If not in cache, broadcast to the rest to figure out
+					if(check_arp_cache(arp->ar_tip) == 1){
+						// it is in the cache
+					}else{
+						// need to send a broadcast message
+						printf("Recieved a packet that was not in cache\n");
+					}
 				}
+			}
+			else if(ntohs(arp->ar_op) == ETHERNET_ARP_RESPONSE){
+				printf("\n\nGot ARP Response\n\n");
+				// add to arp cache
+				// process the stored packet
 			}
 		}else if(ntohs(eth->ether_type) == ETHERNET_IP){
 			struct ip* ipPkt = recieve_ip_packet(packet);
