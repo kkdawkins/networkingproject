@@ -31,6 +31,9 @@
 #define ICMP_ECHO_RESPONSE  0
 #define ARP_LEN 28
 #define ETHER_ADDR_HDR 14
+#define DESTUNREACHABLE 3
+#define TIMEEXCEED 11
+#define DESTPORTUNREACH 3
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
  * Scope:  Global
@@ -811,3 +814,68 @@ void sr_handlepacket(struct sr_instance* sr,
 //	}
 
 }
+
+
+
+void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* ipPkt, uint8_t* packet,unsigned int len,char* interface,int type,int code){
+	struct sr_icmphdr* newicmp = malloc(sizeof(struct sr_icmphdr));
+	struct sr_ethernet_hdr* neweth = malloc(sizeof(struct sr_ethernet_hdr));
+	struct sr_if* myinterface = Get_Router_Interface(interface, sr);
+	struct ip* origIP = malloc(sizeof(struct ip));
+	memcpy(origIP, ipPkt, sizeof(struct ip));
+	
+	int newLen = 2*sizeof(struct ip) + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmphdr) + 8;
+	
+	uint8_t* newPacket = malloc(newLen);
+	
+	// set up new ethernet header
+	memcpy(neweth->ether_dhost, eth->ether_shost, ETHER_ADDR_LEN);
+	memcpy(neweth->ether_shost, myinterface->addr, ETHER_ADDR_LEN);
+	//memcpy(neweth->ether_type, eth->ether_type, sizeof(uint16_t));
+	neweth->ether_type = eth->ether_type;
+	
+	memcpy(newPacket, neweth, sizeof(struct sr_ethernet_hdr));
+	
+	// setup new IP packet
+	uint32_t temp = ipPkt->ip_src.s_addr;
+	ipPkt->ip_src.s_addr = myinterface->ip;
+	ipPkt->ip_dst.s_addr = temp;
+	
+	ipPkt->ip_ttl = 200;
+	ipPkt->ip_len = htons(newLen - sizeof(struct sr_ethernet_hdr));
+	ipPkt->ip_p = IP_ICMP;
+	ipPkt->ip_sum = 0;
+	ipPkt->ip_sum = htons(ip_sum_calc(sizeof(struct ip), (uint8_t *)ipPkt));
+	
+	memcpy(newPacket + sizeof(struct sr_ethernet_hdr), ipPkt, sizeof(struct ip));
+	
+	newicmp->type = type;
+	newicmp->code = code;
+	newicmp->id = 0;
+	newicmp->seq_no = 0;
+	newicmp->checksum = 0;
+	newicmp->checksum = htons(ip_sum_calc(sizeof(struct sr_icmphdr), (uint8_t *)newicmp));
+	
+	memcpy(newPacket + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), newicmp, sizeof(struct sr_icmphdr));
+	memcpy(newPacket + sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmphdr), origIP, sizeof(struct ip));
+	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmphdr)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
+	
+	sr_send_packet(sr, newPacket, newLen, interface);
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
