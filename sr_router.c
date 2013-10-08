@@ -26,6 +26,8 @@
 #define ETHERNET_ARP_RESPONSE 2
 #define ETHERNET_ARP 0x806
 #define ETHERNET_IP  0x800
+#define ETHERNET_TCP 0x06
+#define ETHERNET_UDP 0x11
 #define IP_ICMP		0x01
 #define ICMP_ECHO_REQUEST  8
 #define ICMP_ECHO_RESPONSE  0
@@ -766,7 +768,11 @@ void sr_handlepacket(struct sr_instance* sr,
 		}else if(ntohs(eth->ether_type) == ETHERNET_IP){
             printf("3939 IP Packet\n");
 			struct ip* ipPkt = recieve_ip_packet(packet);
-			printf("Got an IP Packet (with version %x)! With IP opcode %x\n\n", ipPkt->ip_v,ipPkt->ip_p);
+			printf("Got an IP Packet (with version %x)! With IP opcode %x and TTL %x\n\n", ipPkt->ip_v,ipPkt->ip_p,ipPkt->ip_ttl);
+            if(ipPkt->ip_ttl == 1){
+                printf("TTL has expired\n");
+               PacketError(sr, eth, ipPkt, packet, len, interface, 11, 0); 
+            }
 			arp_cache_add(ipPkt->ip_src.s_addr, eth->ether_shost);
 			if(ipPkt->ip_p == IP_ICMP){
 				printf("It is an ICMP!\n");
@@ -788,27 +794,37 @@ void sr_handlepacket(struct sr_instance* sr,
 					printf("Got an ICMP Echo RESPONSE!\n");
 					packet_forward(sr,eth,ipPkt,packet,len,interface);
 				}
-	/*			else if(ipPkt->ip_p == ETHERNET_TCP) {
-		 //printf("TCP Protocol it is");
-		 // TODO check for whether the destination address is one of the router's addresses
-		 if(myIf == 0)
-		 {
-			 //printf("Oops!! Pinged the wrong IP Address!! You are gonna receive Port Unreachable");
-			 PortUnreachable(sr,eh_pkt,ip_pkt,pck_buf,len,interface,3,3);
-			 
-		 }
-		 else if(myIf != 0)
-		 {
-			packet_forward(sr,eh_pkt,ip_pkt,pck_buf,len,interface);
-		 }
-	 }*/
 			}
-		
+			else if(ipPkt->ip_p == ETHERNET_TCP) {
+				 //printf("TCP Protocol it is");
+				 // TODO check for whether the destination address is one of the router's addresses
+				 if((is_my_interface(ipPkt->ip_dst.s_addr) == 0))
+				 {
+					 //printf("Oops!! Pinged the wrong IP Address!! You are gonna receive Port Unreachable");
+					 PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
+					 
+				 }
+				 else if((is_my_interface(ipPkt->ip_dst.s_addr) != 0))
+				 {
+					packet_forward(sr,eth,ipPkt,packet,len,interface);
+				 }
+	 		}
+	 		else if(ipPkt->ip_p == ETHERNET_UDP){
+	 			if((is_my_interface(ipPkt->ip_dst.s_addr) == 0)){
+	 				PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
+	 			}else{
+	 				if(ipPkt->ip_ttl == 1){
+	 					PacketError(sr,eth,ipPkt,packet,len,interface,11,0);
+	 				}else{
+	 					packet_forward(sr,eth,ipPkt,packet,len,interface);
+	 				}
+	 			}
+	 		}
 		}else{
 
 			/* Code for IP packet */
 
-			printf("Not an ARP or IP Packet. opcode = %X\n\n",ntohs(eth->ether_type));
+			printf("Unnkown Packet Type. opcode = %X\n\n",ntohs(eth->ether_type));
 			return;
 		}
 //	}
@@ -832,7 +848,7 @@ void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* 
 	memcpy(neweth->ether_dhost, eth->ether_shost, ETHER_ADDR_LEN);
 	memcpy(neweth->ether_shost, myinterface->addr, ETHER_ADDR_LEN);
 	//memcpy(neweth->ether_type, eth->ether_type, sizeof(uint16_t));
-	neweth->ether_type = eth->ether_type;
+	neweth->ether_type = htons(ETHERNET_IP);
 	
 	memcpy(newPacket, neweth, sizeof(struct sr_ethernet_hdr));
 	
@@ -860,8 +876,15 @@ void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* 
 	memcpy(newPacket + sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmphdr), origIP, sizeof(struct ip));
 	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmphdr)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
 	
-	sr_send_packet(sr, newPacket, newLen, interface);
-
+	
+	
+	int ret = sr_send_packet(sr, newPacket, newLen, interface);
+    if(ret < 0){
+        fprintf(stderr,"sr_send_packet failed in packet error\n");
+        exit(-1);
+    }else{
+    	printf("sr_send_packet worked!\n");
+    }
 }
 
 
