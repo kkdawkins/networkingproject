@@ -134,7 +134,7 @@ void* cleaner(void* thread);
 void* packetbufferCleaner(void* thread);
 int LongestMask(uint32_t m);
 void packet_forward(struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,struct ip* ip_pkt1,uint8_t* packet,unsigned int len,char* interface);
-
+void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* ipPkt, uint8_t* packet,unsigned int len,char* interface,int type,int code);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
