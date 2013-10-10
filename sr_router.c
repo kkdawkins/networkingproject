@@ -203,12 +203,6 @@ char* check_routing_table(uint32_t ip_dst,struct sr_instance* sr,struct sr_ether
 			
 			maxlength = Length;
 			*nextHopIp = rt1->gw.s_addr;
-			unsigned char bytes[4];
-			     bytes[0] = 	rt1->gw.s_addr & 0xFF;
-				bytes[1] = (rt1->gw.s_addr >> 8) & 0xFF;
-				bytes[2] = (rt1->gw.s_addr >> 16) & 0xFF;
-				bytes[3] = (rt1->gw.s_addr>> 24) & 0xFF;	  
-				printf("\nin CRT next hop = %d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]); 
 				
 			printf("--- Printing routing entry \n");
 			sr_print_routing_entry(rt1);
@@ -347,12 +341,21 @@ void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip
 	memcpy(eth_new->ether_shost, router_host_addr, ETHER_ADDR_LEN);
 	memcpy(packet,eth_new, sizeof(struct sr_ethernet_hdr));
 	
+	if(ipPkt->ip_p == ETHERNET_UDP)
+	{
+		printf("\n\n Gotcha! \n\n");
+		ipPkt->ip_p = IP_ICMP;
+	}else{
+		printf("\n\n Not gotten :( \n\n");
+	}
+	
 	//Now we must make a new IP Packet
 	uint32_t temp = ipPkt->ip_src.s_addr;
 	ipPkt->ip_src.s_addr = router_host_ip;
 	ipPkt->ip_dst.s_addr = temp;
 	ipPkt->ip_ttl = 0xFF;
 	ipPkt->ip_sum = htons(ip_sum_calc(sizeof(struct ip), (uint8_t*)ipPkt));
+
 	
 	// place ip packet into the packet
 	memcpy(packet+sizeof(struct sr_ethernet_hdr), ipPkt, sizeof(struct ip));
@@ -374,11 +377,19 @@ void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip
 		return;
     }
     icmp->type = ICMP_ECHO_RESPONSE;
-    memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    
+    icmp->checksum = 0;
     icmp->checksum = htons(ip_sum_calc(buff1,(uint8_t*)icmp_buf));
     memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    //icmp->checksum = htons(ip_sum_calc(buff1,(uint8_t*)icmp_buf));
+    //memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
     memcpy(packet+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),icmp_buf,buff1);
     
+    //printf("dest: ");
+    //DebugMAC(temp);
+    //printf("\n Src: ");
+    //DebugMAC(router_host_ipr);
+    //printf("\n");
     sr_send_packet(sr,packet,len,interface);//send the packet
 #ifdef DEBUG
 #if ((DEBUG > 2) && (DEBUG < 4)) || DEBUG == 10
@@ -769,7 +780,7 @@ void sr_handlepacket(struct sr_instance* sr,
             printf("3939 IP Packet\n");
 			struct ip* ipPkt = recieve_ip_packet(packet);
 			printf("Got an IP Packet (with version %x)! With IP opcode %x and TTL %x\n\n", ipPkt->ip_v,ipPkt->ip_p,ipPkt->ip_ttl);
-            if(ipPkt->ip_ttl == 1){
+            if(ipPkt->ip_ttl == 1 && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
                 printf("TTL has expired\n");
                PacketError(sr, eth, ipPkt, packet, len, interface, 11, 0); 
             }
@@ -811,7 +822,11 @@ void sr_handlepacket(struct sr_instance* sr,
 	 		}
 	 		else if(ipPkt->ip_p == ETHERNET_UDP){
 	 			if((is_my_interface(ipPkt->ip_dst.s_addr) == 0)){
-	 				PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
+	 				printf("\n\nSending from UDP Pack func \n\n");
+	 				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
+					memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
+					icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
+	 				//PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
 	 			}else{
 	 				if(ipPkt->ip_ttl == 1){
 	 					PacketError(sr,eth,ipPkt,packet,len,interface,11,0);
