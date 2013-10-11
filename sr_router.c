@@ -820,13 +820,13 @@ void sr_handlepacket(struct sr_instance* sr,
 					packet_forward(sr,eth,ipPkt,packet,len,interface);
 				 }
 	 		}
-	 		else if(ipPkt->ip_p == ETHERNET_UDP){
+	 		else if(ipPkt->ip_p == ETHERNET_UDP){ // for traceroute!
 	 			if((is_my_interface(ipPkt->ip_dst.s_addr) == 0)){
 	 				printf("\n\nSending from UDP Pack func \n\n");
-	 				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
-					memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
-					icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
-	 				//PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
+	 				//struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
+					//memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
+					//icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
+	 				PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
 	 			}else{
 	 				if(ipPkt->ip_ttl == 1){
 	 					PacketError(sr,eth,ipPkt,packet,len,interface,11,0);
@@ -849,10 +849,13 @@ void sr_handlepacket(struct sr_instance* sr,
 
 
 void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* ipPkt, uint8_t* packet,unsigned int len,char* interface,int type,int code){
+
+
 	struct sr_icmphdr* newicmp = malloc(sizeof(struct sr_icmphdr));
 	struct sr_ethernet_hdr* neweth = malloc(sizeof(struct sr_ethernet_hdr));
 	struct sr_if* myinterface = Get_Router_Interface(interface, sr);
 	struct ip* origIP = malloc(sizeof(struct ip));
+	uint8_t* icmp_pkt_buf =(uint8_t*)malloc(36);
 	memcpy(origIP, ipPkt, sizeof(struct ip));
 	
 	int newLen = 2*sizeof(struct ip) + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmphdr) + 8;
@@ -885,13 +888,19 @@ void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* 
 	newicmp->id = 0;
 	newicmp->seq_no = 0;
 	newicmp->checksum = 0;
-	newicmp->checksum = htons(ip_sum_calc(sizeof(struct sr_icmphdr), (uint8_t *)newicmp));
 	
-	memcpy(newPacket + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), newicmp, sizeof(struct sr_icmphdr));
-	memcpy(newPacket + sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmphdr), origIP, sizeof(struct ip));
-	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmphdr)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
+	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),newicmp,sizeof(struct ip));
+	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage),origIP,sizeof(struct ip));
+	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
 	
 	
+    memcpy(icmp_pkt_buf,newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),36);
+	newicmp->checksum = 0;
+    newicmp->checksum = htons(ip_sum_calc(36,(uint8_t*)icmp_pkt_buf));
+    
+    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),newicmp,sizeof(struct ip));
+    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage),origIP,sizeof(struct ip));
+    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
 	
 	int ret = sr_send_packet(sr, newPacket, newLen, interface);
     if(ret < 0){
