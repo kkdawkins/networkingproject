@@ -89,6 +89,9 @@ struct pb_entry{
 	uint8_t *packet;
 	struct ip* ipPkt;
 	unsigned int len;
+	int interface;
+	uint32_t nexthop;
+	int waitcycle;
 	int dirty;
 	struct pb_entry *next;
 } __attribute__ ((packed)) ;
@@ -157,13 +160,17 @@ int arp_cache_add(uint32_t ip, uint8_t* hardware); /* Will return:
                                                     * -1 - Table full
                                                     * -2 - Failure
                                                     */
+struct sr_if* Get_Router_Interface(char* interfaceName, struct sr_instance *sr);
+void CreateARPRequest(struct sr_instance* sr,struct ip* ip_pkt1,
+						char* ifname,unsigned char* ifhw1,uint32_t ifip,uint32_t nexthop);
 void arpCacheDeleter();
 void dumparpcache();
-
+void* arpPending(void *thread);
 // packet buffer files
 void packet_buffer_cleaner();
 bool init_packet_buffer();
 struct pb_entry* packet_buffer_retrieve(uint32_t);
-bool packet_buffer_add(uint8_t* , unsigned int , struct ip*);
+bool packet_buffer_add(uint8_t* pkt, unsigned int len, struct ip *ipPkt, int if_code, uint32_t if_nexthop);
+struct pb_entry* getPBRoot();
 
 #endif /* SR_ROUTER_H */

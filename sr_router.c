@@ -20,7 +20,7 @@
 #include "sr_rt.h"
 #include "sr_router.h"
 #include "sr_protocol.h"
-
+#include <semaphore.h>  /* Semaphore */
 
 #define ETHERNET_ARP_REQUEST 1
 #define ETHERNET_ARP_RESPONSE 2
@@ -47,22 +47,27 @@
 
 pthread_t arpcleaner;
 pthread_t pbcleaner;
+
+sem_t mutex;
+
+struct sr_instance* inst;
 struct sr_if* me;
-struct packet_buffer* phead;
+
 void sr_init(struct sr_instance* sr) 
 {
     /* REQUIRES */
     assert(sr);
     	
+    inst = sr;
 
-
-    /* Add initialization code here! */
-    
-    // We need to initialize the cache here!
-    pthread_create(&arpcleaner,NULL,&cleaner,NULL);
-    //pthread_create(&pbcleaner, NULL,&packetbufferCleaner,NULL);
 	init_arp_cache();
 	init_packet_buffer();
+    /* Add initialization code here! */
+    sem_init(&mutex, 0, 1);
+    // We need to initialize the cache here!
+    pthread_create(&arpcleaner,NULL,&cleaner,NULL);
+    pthread_create(&pbcleaner, NULL,&arpPending,NULL);
+
 } /* -- sr_init -- */
 
 
@@ -99,6 +104,52 @@ uint16_t i;
 return ((uint16_t) sum);
 }
 
+void checkPending(){
+   struct pb_entry* curr = getPBRoot();
+	struct sr_if* theinterface;
+	if(inst == NULL){
+		printf("Failed to get instance\n");
+		return;
+	}
+    while(curr != NULL){
+    	//printf("\n\n\n\n\n\nI have a packet with wait cycle %d!\n\n\n\n\n\n", curr->waitcycle);
+        if(curr->dirty == 0 && curr->waitcycle < 5){
+        	if(curr->interface == 0){
+        		theinterface = Get_Router_Interface("eth0", inst);
+        		CreateARPRequest(inst, curr->ipPkt, "eth0", theinterface->addr, theinterface->ip, curr->nexthop);
+        	}else if(curr->interface == 1){
+        		theinterface = Get_Router_Interface("eth1", inst);
+        		CreateARPRequest(inst, curr->ipPkt, "eth1", theinterface->addr, theinterface->ip, curr->nexthop);
+        	}else{
+        		theinterface = Get_Router_Interface("eth2", inst);
+        		CreateARPRequest(inst, curr->ipPkt, "eth2", theinterface->addr, theinterface->ip, curr->nexthop);        	
+        	}
+			curr->waitcycle ++;
+        }else if(curr->dirty == 0 && curr->waitcycle >=5 ){
+        	//printf("\n\n\n\n\n\nI have a packet who exceeded their wait cycle!\n\n\n\n\n\n");
+        	struct sr_ethernet_hdr* eth = malloc(sizeof(struct sr_ethernet_hdr));
+        	memcpy(eth, curr->packet, sizeof(struct sr_ethernet_hdr));
+        	if(curr->interface == 0){
+        		PacketError(inst,eth,curr->ipPkt,curr->packet,curr->len,"eth0",3,1);
+        	}else if(curr->interface == 1){
+        		PacketError(inst,eth,curr->ipPkt,curr->packet,curr->len,"eth1",3,1);
+        	}else{
+        		PacketError(inst,eth,curr->ipPkt,curr->packet,curr->len,"eth2",3,1);
+        	}
+            curr->dirty = 1;
+        }
+        curr = curr->next;
+    }
+}
+
+void* arpPending(void *thread){
+    while(1){
+        printf("Beginning to check Packet Buffer\n");
+        checkPending();
+        packet_buffer_cleaner();
+        sleep(1);
+    }
+}
 
 
 void* cleaner(void* thread)
@@ -107,18 +158,13 @@ void* cleaner(void* thread)
 	// Yes, I am actually making an infinite loop
 	while(1)
 	{
-#ifdef DEBUG
-#if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10
 		printf("ARP Cleaner start.\n");
-#endif
-#endif
+	    sem_wait(&mutex);
 		arpCacheDeleter();
-#ifdef DEBUG
-#if ((DEBUG > 0) && (DEBUG < 2)) || DEBUG == 10
+
 		dumparpcache();
+		sem_post(&mutex);
 		printf("ARP Cleaner End.\n");
-#endif
-#endif		
 		sleep(15); // 15 Second timer, per spec
 	}
 }
@@ -477,7 +523,15 @@ return;
 		memcpy(packet,eh_pkt,sizeof(struct sr_ethernet_hdr));
 		memcpy(packet+sizeof(struct sr_ethernet_hdr),ip_pkt1,sizeof(struct ip));
 		printf("Not present in the cache");
-		packet_buffer_add(packet,len,ip_pkt1);	// IMPLEMENT PACKETBUFFER
+		if(strcmp("eth0",ifname) == 0){
+			packet_buffer_add(packet,len,ip_pkt1,0, *nexthop);	// IMPLEMENT PACKETBUFFER
+		}else if(strcmp("eth1",ifname) == 0){
+			packet_buffer_add(packet,len,ip_pkt1,1, *nexthop);	// IMPLEMENT PACKETBUFFER
+		}else
+		{
+				packet_buffer_add(packet,len,ip_pkt1,2, *nexthop);	// IMPLEMENT PACKETBUFFER
+		}
+		
 		printf("invoking arp request function");	// IMPLEMENT ARPREQUEST AND SEND THE PACKET
 
 		CreateARPRequest(sr,ip_pkt1,ifname,ifhw1,ifip,*nexthop);
@@ -739,6 +793,10 @@ void sr_handlepacket(struct sr_instance* sr,
 	
 	me = NULL;
     me = sr->if_list;
+    
+    inst = sr;
+    
+    
     if(me == NULL){
     	fprintf(stderr,"Failed to discover self.\n");
     	exit(-1);
@@ -768,9 +826,9 @@ void sr_handlepacket(struct sr_instance* sr,
 			}
 			else if(ntohs(arp->ar_op) == ETHERNET_ARP_RESPONSE){
 				printf("\n\n3939Got ARP Response\n\n");
-				
+				sem_wait(&mutex);
 				arp_cache_add(arp->ar_sip, arp->ar_sha);
-				
+				sem_post(&mutex);
 				ProcessQeuedPackets(sr, eth, arp->ar_sip, interface);
 				
 				// add to arp cache

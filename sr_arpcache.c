@@ -1,5 +1,8 @@
 #include "sr_router.h"
 #include <stdlib.h>
+
+
+
 /*
  * Implementation of the ARP cache
  * Kevin Dawkins and Karan Chadha
@@ -29,11 +32,13 @@ void arpCacheDeleter(){
 	struct arp_entry* temp = NULL; // the one to be deleted
 	struct arp_entry* lookahead = NULL;
 	
+
+	
 	curr = root;
 	if(curr == NULL){
 		return;
 	}
-	
+    printf("part 0\n");	
 	// Clean out the root
 	while((curr != NULL) && (timeCheck(curr->creation) == true)){
 		temp = curr;
@@ -41,11 +46,11 @@ void arpCacheDeleter(){
 		free(temp);
 		root = curr;
 	}
-	
+    printf("Part 1\n");	
 	if(root == NULL){
 		return; // this is if there was only 1 entry in cache, and got deleted
 	}
-	
+    printf("Part 2\n");	
 	// scan the rest, need the lookahead, curr was checked above
 	lookahead = curr->next;
 	while(lookahead != NULL){
@@ -55,6 +60,7 @@ void arpCacheDeleter(){
 				temp = lookahead;
 				curr->next = NULL;
 				free(temp);
+				return;
 			}
 			else{
 				temp = lookahead;
@@ -67,7 +73,7 @@ void arpCacheDeleter(){
 			curr = curr->next;
 		}
 	}
-			
+
 }
 
 /*
@@ -77,6 +83,7 @@ void arpCacheDeleter(){
 void dumparpcache(){
 	struct arp_entry* curr;
 	curr = root;
+
 	printf("---Printing ARP Cache---\n");
 	while(curr){
 
@@ -85,11 +92,15 @@ void dumparpcache(){
 		curr = curr->next;
 
 	}
+	
 	printf("---End ARP Cache---\n");
+
 }
 
 int init_arp_cache(){
 	root = NULL;
+	
+
 	
 	// We will do timer thread start here
 
@@ -105,6 +116,8 @@ bool check_arp_cache(uint32_t ip){
 #endif
 	struct arp_entry* curr;
 	
+	//sem_wait(&mutex); 
+	
 	curr = root;
 	
 	while(curr != NULL){
@@ -116,6 +129,7 @@ bool check_arp_cache(uint32_t ip){
 		}
 		curr = curr->next;
 	}
+	//sem_post(&mutex);
     return false;
 }
 
@@ -150,6 +164,7 @@ uint8_t* get_hardware_addr(uint32_t ip){
 void updateARPCacheEntry(uint32_t ip){
 	struct arp_entry *curr;
 	struct timeval currtime;
+	//sem_wait(&mutex); 
 	gettimeofday(&currtime, NULL);
 	curr = root;
 	while(curr != NULL){
@@ -159,11 +174,13 @@ void updateARPCacheEntry(uint32_t ip){
 		}
 		curr = curr->next;	
 	}
+	//sem_post(&mutex);
 }
 
 bool arp_cache_add(uint32_t ip, uint8_t* haddr){
 	struct arp_entry* curr;
 	struct timeval currtime;
+
 	gettimeofday (&currtime, NULL);
     if(check_arp_cache(ip)){
         // The entry is already in the ARP cache, so we must update the timestamp
@@ -202,6 +219,6 @@ bool arp_cache_add(uint32_t ip, uint8_t* haddr){
     	}
     	curr->next = node;
     }
-    
+
     return true;
 }

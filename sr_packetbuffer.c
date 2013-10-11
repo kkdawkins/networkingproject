@@ -28,6 +28,10 @@ bool init_packet_buffer(){
 	return true;
 }
 
+struct pb_entry* getPBRoot(){
+	return pb_root;
+}
+
 void packet_buffer_cleaner(){
 	struct pb_entry *curr;
 	struct pb_entry *temp;
@@ -41,7 +45,7 @@ void packet_buffer_cleaner(){
 	}
 	
 	// Clean out the root
-	while((curr != NULL) && (curr->dirty == 1)){
+	while((curr != NULL) && (curr->dirty == 1 && curr->waitcycle ==  5)){
 		temp = curr;
 		curr = curr->next;
 		free(temp);
@@ -56,12 +60,13 @@ void packet_buffer_cleaner(){
 	// scan the rest, need the lookahead, curr was checked above
 	lookahead = curr->next;
 	while(lookahead != NULL){
-		if(lookahead->dirty == 1){
+		if(lookahead->dirty == 1 && curr->waitcycle == 5){
 			if(lookahead->next == NULL)
 			{
 				temp = lookahead;
 				curr->next = NULL;
 				free(temp);
+				return;
 			}
 			else{
 				temp = lookahead;
@@ -95,7 +100,7 @@ struct pb_entry* packet_buffer_retrieve(uint32_t ipaddr){
 }
 
 
-bool packet_buffer_add(uint8_t* pkt, unsigned int len, struct ip *ipPkt){
+bool packet_buffer_add(uint8_t* pkt, unsigned int len, struct ip *ipPkt, int if_code, uint32_t if_nexthop){
 	struct pb_entry *node = malloc(sizeof(struct pb_entry));
 	
 	node->packet = malloc(len);
@@ -106,8 +111,10 @@ bool packet_buffer_add(uint8_t* pkt, unsigned int len, struct ip *ipPkt){
 	node->ipPkt = ipPkt;
 	node->dirty = 0;
 	node->next = NULL;
-	
-	struct pb_entry *curr = pb_root;
+    node->waitcycle = 1; // Because we already sent 1	
+    node->interface = if_code;
+    node->nexthop = if_nexthop;
+    struct pb_entry *curr = pb_root;
 	
 	if(curr == NULL){
 		pb_root = node;
