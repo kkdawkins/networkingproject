@@ -804,6 +804,8 @@ void sr_handlepacket(struct sr_instance* sr,
 				else if(icmp->type == ICMP_ECHO_RESPONSE && (is_my_interface(ipPkt->ip_dst.s_addr) == 1)){
 					printf("Got an ICMP Echo RESPONSE!\n");
 					packet_forward(sr,eth,ipPkt,packet,len,interface);
+				}else{
+					packet_forward(sr,eth,ipPkt,packet,len,interface);
 				}
 			}
 			else if(ipPkt->ip_p == ETHERNET_TCP) {
