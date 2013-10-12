@@ -350,7 +350,7 @@ struct ip*	recieve_ip_packet(uint8_t *packet){
 	return ippkt;
 }
 
-void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip* ipPkt, struct sr_icmphdr* icmp, char* interface, uint8_t *packet, unsigned int len){
+void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip* ipPkt, struct sr_icmp_hdr* icmp, char* interface, uint8_t *packet, unsigned int len){
 	struct sr_if* myinterface;
 	unsigned char *router_host_addr;
 	uint32_t router_host_ip;
@@ -406,14 +406,14 @@ void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip
 	// place ip packet into the packet
 	memcpy(packet+sizeof(struct sr_ethernet_hdr), ipPkt, sizeof(struct ip));
 
-	int icmp_payload = len - sizeof(struct sr_ethernet_hdr) - sizeof(struct ip) - sizeof(struct sr_icmphdr);
+	int icmp_payload = len - sizeof(struct sr_ethernet_hdr) - sizeof(struct ip) - sizeof(struct sr_icmp_hdr);
     int buff1 = len - sizeof(struct sr_ethernet_hdr) - sizeof(struct ip);
-    int buff2 = sizeof(struct sr_ethernet_hdr) + sizeof(struct ip) + sizeof(struct sr_icmphdr);
+    int buff2 = sizeof(struct sr_ethernet_hdr) + sizeof(struct ip) + sizeof(struct sr_icmp_hdr);
     uint8_t* icmp_buf = malloc(buff1);
     uint16_t icmp_checksum = ntohs(icmp->checksum);
 
-    memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
-    memcpy(icmp_buf+sizeof(struct sr_icmphdr),packet+buff2,icmp_payload);
+    memcpy(icmp_buf,icmp,sizeof(struct sr_icmp_hdr));
+    memcpy(icmp_buf+sizeof(struct sr_icmp_hdr),packet+buff2,icmp_payload);
 
     //uint16_t calc_icmp_cs = (ip_sum_calc(buff1,(uint8_t*)icmp_buf));
 
@@ -426,9 +426,9 @@ void icmp_request(struct sr_instance* sr, struct sr_ethernet_hdr* eth, struct ip
     
     icmp->checksum = 0;
     icmp->checksum = htons(ip_sum_calc(buff1,(uint8_t*)icmp_buf));
-    memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    memcpy(icmp_buf,icmp,sizeof(struct sr_icmp_hdr));
     //icmp->checksum = htons(ip_sum_calc(buff1,(uint8_t*)icmp_buf));
-    //memcpy(icmp_buf,icmp,sizeof(struct sr_icmphdr));
+    //memcpy(icmp_buf,icmp,sizeof(struct sr_icmp_hdr));
     memcpy(packet+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),icmp_buf,buff1);
     
     //printf("dest: ");
@@ -457,8 +457,7 @@ void packet_forward(struct sr_instance* sr,struct sr_ethernet_hdr* eh_pkt,struct
 	int checksum = ntohs(ip_pkt1->ip_sum); // ZERO'ig out Checksum to cal 
 	ip_pkt1->ip_sum = 0;
 	uint8_t* hw = (uint8_t*)malloc(ETHER_ADDR_LEN);
-	//sr->arp_cc = NULL;
-	//uint8_t* pkt1 = (uint8_t*)malloc(len);
+
     	uint16_t calc_checksum_ip = (ip_sum_calc(sizeof(struct ip),(uint8_t*)ip_pkt1));
     	uint32_t* nexthop=(uint32_t*)malloc(sizeof(uint32_t));
 #ifdef DEBUG
@@ -486,12 +485,12 @@ return;
 #endif
 	char* if1 = check_routing_table(ip_pkt1->ip_dst.s_addr,sr,eh_pkt,ifname,nexthop);
 	memcpy(ifname,if1,sr_IFACE_NAMELEN);
-	//unsigned char* ifhw1 = Get_Router_Interface(ifname,sr);
+
 	uint32_t ifip = Get_Router_Interface(ifname,sr)->ip;
 
 		struct sr_if* interface_temp = Get_Router_Interface(ifname, sr);
 		unsigned char* ifhw1   = interface_temp->addr;
-	//	uint32_t outer_host_ip = interface_temp->ip;
+
 
 
 	memcpy(eh_pkt->ether_shost,ifhw1,ETHER_ADDR_LEN);
@@ -511,12 +510,11 @@ return;
 #endif
 #endif
 	arp_cache_add(ip_pkt1->ip_src.s_addr,eh_pkt->ether_shost);
-	//If destination address present in arpcache, send the packet accordingly.
-	//PrintEntriesInArpCache();
 
-	// DUMPING ARP CACHE TO SEE THE ENTRIES
+
+
 	dumparpcache();
-	   				// IF NOT PRESENT IN CACHE DO PACKETBUFFER AND ARPREQUEST 
+
 	if(check_arp_cache(ip_pkt1->ip_dst.s_addr) == 0) 
 	{
 		memcpy(eh_pkt->ether_shost,ifhw1,ETHER_ADDR_LEN);
@@ -682,8 +680,6 @@ int generate_arp_reply(struct sr_instance* sr, struct sr_ethernet_hdr* eth, stru
 	
 	memcpy(buffer, eth_reply, sizeof(struct sr_ethernet_hdr));
 	memcpy(buffer + sizeof(struct sr_ethernet_hdr), arp_reply, sizeof(struct sr_arphdr));
-	
-	//printf("Size of packet I am sending %d\n", sizeof(buffer));
 
 		
 #ifdef DEBUG
@@ -845,8 +841,8 @@ void sr_handlepacket(struct sr_instance* sr,
 			arp_cache_add(ipPkt->ip_src.s_addr, eth->ether_shost);
 			if(ipPkt->ip_p == IP_ICMP){
 				printf("It is an ICMP!\n");
-				struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
-				memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));				
+				struct sr_icmp_hdr* icmp = malloc(sizeof(struct sr_icmp_hdr));
+				memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmp_hdr));				
 
 				// TODO check for whether the destination address is one of the router's addresses
 
@@ -867,11 +863,10 @@ void sr_handlepacket(struct sr_instance* sr,
 				}
 			}
 			else if(ipPkt->ip_p == ETHERNET_TCP) {
-				 //printf("TCP Protocol it is");
+
 				 // TODO check for whether the destination address is one of the router's addresses
 				 if((is_my_interface(ipPkt->ip_dst.s_addr) == 0))
 				 {
-					 //printf("Oops!! Pinged the wrong IP Address!! You are gonna receive Port Unreachable");
 					 PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
 					 
 				 }
@@ -883,8 +878,8 @@ void sr_handlepacket(struct sr_instance* sr,
 	 		else if(ipPkt->ip_p == ETHERNET_UDP){ // for traceroute!
 	 			if((is_my_interface(ipPkt->ip_dst.s_addr) == 0)){
 	 				printf("\n\nSending from UDP Pack func \n\n");
-	 				//struct sr_icmphdr* icmp = malloc(sizeof(struct sr_icmphdr));
-					//memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmphdr));
+	 				//struct sr_icmp_hdr* icmp = malloc(sizeof(struct sr_icmp_hdr));
+					//memcpy(icmp, packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip), sizeof(struct sr_icmp_hdr));
 					//icmp_request(sr, eth, ipPkt, icmp,interface, packet, len);
 	 				PacketError(sr,eth,ipPkt,packet,len,interface,3,3);
 	 			}else{
@@ -911,14 +906,14 @@ void sr_handlepacket(struct sr_instance* sr,
 void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* ipPkt, uint8_t* packet,unsigned int len,char* interface,int type,int code){
 
 
-	struct sr_icmphdr* newicmp = malloc(sizeof(struct sr_icmphdr));
+	struct sr_icmp_hdr* newicmp = malloc(sizeof(struct sr_icmp_hdr));
 	struct sr_ethernet_hdr* neweth = malloc(sizeof(struct sr_ethernet_hdr));
 	struct sr_if* myinterface = Get_Router_Interface(interface, sr);
 	struct ip* origIP = malloc(sizeof(struct ip));
 	uint8_t* icmp_pkt_buf =(uint8_t*)malloc(36);
 	memcpy(origIP, ipPkt, sizeof(struct ip));
 	
-	int newLen = 2*sizeof(struct ip) + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmphdr) + 8;
+	int newLen = 2*sizeof(struct ip) + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmp_hdr) + 8;
 	
 	uint8_t* newPacket = malloc(newLen);
 	
@@ -950,8 +945,8 @@ void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* 
 	newicmp->checksum = 0;
 	
 	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),newicmp,sizeof(struct ip));
-	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage),origIP,sizeof(struct ip));
-	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
+	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmp_hdr),origIP,sizeof(struct ip));
+	memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmp_hdr)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
 	
 	
     memcpy(icmp_pkt_buf,newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),36);
@@ -959,8 +954,8 @@ void PacketError(struct sr_instance* sr,struct sr_ethernet_hdr* eth, struct ip* 
     newicmp->checksum = htons(ip_sum_calc(36,(uint8_t*)icmp_pkt_buf));
     
     memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip),newicmp,sizeof(struct ip));
-    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage),origIP,sizeof(struct ip));
-    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmpMessage)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
+    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmp_hdr),origIP,sizeof(struct ip));
+    memcpy(newPacket+sizeof(struct sr_ethernet_hdr)+sizeof(struct ip)+sizeof(struct sr_icmp_hdr)+sizeof(struct ip),packet+sizeof(struct ip)+sizeof(struct sr_ethernet_hdr),8);
 	
 	int ret = sr_send_packet(sr, newPacket, newLen, interface);
     if(ret < 0){

@@ -104,22 +104,13 @@ struct arp_entry{
     struct arp_entry*   next;
 } arp_entry;
 
-struct sr_icmphdr
+struct sr_icmp_hdr
 {
       uint8_t type;                    
       uint8_t code;
       uint16_t checksum;
       uint16_t id;                                /*Identifier*/
       uint16_t seq_no;         /*Sequence Number*/
-} __attribute__ ((packed)) ;
-
-struct sr_icmpMessage
-{
-   uint8_t type;                    
-   uint8_t code;
-   uint16_t checksum;
-   uint16_t empty;
-   uint16_t nexthop;
 } __attribute__ ((packed)) ;
 
 /* -- sr_main.c -- */
