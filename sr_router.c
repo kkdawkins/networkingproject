@@ -83,9 +83,9 @@ Description: Calculate the 16 bit IP sum.
 
 uint16_t ip_sum_calc(uint16_t len_ip_header, uint8_t buff[])
 {
-uint16_t word16;
-uint32_t sum=0;
-uint16_t i;
+	uint16_t word16;
+	uint32_t sum=0;
+	uint16_t i;
     
 	// make 16 bit words out of every two adjacent 8 bit words in the packet
 	// and add them up
@@ -101,7 +101,7 @@ uint16_t i;
 	// one's complement the result
 	sum = ~sum;
 	
-return ((uint16_t) sum);
+	return ((uint16_t) sum);
 }
 
 void checkPending(){
@@ -260,15 +260,15 @@ char* check_routing_table(uint32_t ip_dst,struct sr_instance* sr,struct sr_ether
 	return ifname;
 }
 
-int LongestMask(uint32_t m)
+int LongestMask(uint32_t mask)
 {
-	int l = 0;
-	while(m > 0)
+	int var = 0;
+	while(mask > 0)
 	{
-		l++;
-		m=m<<1;
+		var++;
+		mask = mask << 1;
 	}
-	return l;
+	return var;
 }
 
 void CreateARPRequest(struct sr_instance* sr,struct ip* ip_pkt1,
