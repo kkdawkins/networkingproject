@@ -43,7 +43,11 @@ class IRC(LineReceiver):
         logger.debug("User " + name + " added to chat.")
 
     def handle_CHAT(self, message):
-        return
+        toSend = "<%s> %s" % (self.name, message)
+        for name, protocol in self.users.iteritems():
+            if protocol != self:
+                protocol.sendLine(toSend)
+
     #def dataReceived(self, data):
     #    self.transport.write(data)
 
