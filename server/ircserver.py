@@ -15,7 +15,7 @@ class IRC(LineReceiver):
     def connectionMade(self):
         logger.debug("Connection was made, asking name")
         #self.factory.clients.add(self)
-        self.transport.write("004")
+        self.transport.write("004\r")
         self.sendLine("Whats your name?")
 
     def connectionLost(self,reason):
