@@ -20,6 +20,8 @@ class IRC(LineReceiver):
         if(self.name in self.users):
             del self.users[self.name]
             logger.debug("Connection was lost with " + self.name)
+            announcement = "[Server] " + self.name + " has quit."
+            self.announce(announcement)
         else:
             logger.debug("Connection was lost with uknown")
 
@@ -38,7 +40,8 @@ class IRC(LineReceiver):
         self.users[name] = self
         self.state = "CHAT"
         logger.debug("User " + name + " added to chat.")
-        self.announce(self, name + "has joined.")
+        announcement = "[Server] " + name + " has joined."
+        self.announce(announcement)
 
     def handle_CHAT(self, message):
         toSend = "<%s> %s" % (self.name, message)
