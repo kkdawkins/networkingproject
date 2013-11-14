@@ -7,14 +7,12 @@ from datetime import datetime
 
 class IRC(LineReceiver):
     def __init__(self, users):
-        #self.factory = factory
         self.users = users
         self.name = None
         self.state = "GETNAME"
 
     def connectionMade(self):
         logger.debug("Connection was made, asking name")
-        #self.factory.clients.add(self)
         self.transport.write("004\r")
         self.sendLine("Whats your name?")
 
@@ -24,7 +22,6 @@ class IRC(LineReceiver):
             logger.debug("Connection was lost with " + self.name)
         else:
             logger.debug("Connection was lost with uknown")
-        #self.factory.clients.remove(self)
 
     def lineReceived(self, line):
         if(self.state == "GETNAME"):
@@ -41,6 +38,7 @@ class IRC(LineReceiver):
         self.users[name] = self
         self.state = "CHAT"
         logger.debug("User " + name + " added to chat.")
+        self.announce(self, name + "has joined.")
 
     def handle_CHAT(self, message):
         toSend = "<%s> %s" % (self.name, message)
@@ -48,8 +46,10 @@ class IRC(LineReceiver):
             if protocol != self:
                 protocol.sendLine(toSend)
 
-    #def dataReceived(self, data):
-    #    self.transport.write(data)
+    def announce(self, message):
+        for name, protocol in self.users.iteritems():
+            if protocol != self:
+                protocol.sendLine(message)
 
 class IRCFactory(protocol.Factory):
     def __init__(self):
