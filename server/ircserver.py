@@ -4,14 +4,14 @@ from twisted.internet import reactor, protocol
 from twisted.protocols.basic import LineReceiver
 import logging
 #from datetime import datetime
-from time import gmtime, strftime
+from time import localtime, strftime
 
 class IRC(LineReceiver):
     def __init__(self, users):
         self.users = users
         self.name = None
         self.state = "GETNAME"
-        self.serverMessage = strftime("%H:%M:%S", gmtime()) + " [Server] " # Global server message, only have to calc once
+        self.serverMessage = "" + strftime("%H:%M:%S", localtime()) + " [Server] " # Global server message, only have to calc once
 
     def connectionMade(self):
         logger.debug("Connection was made, asking name")
@@ -30,9 +30,9 @@ class IRC(LineReceiver):
 
     def lineReceived(self, line):
         if(self.state == "GETNAME"):
-            self.handle_GETNAME(line)
+            self.handle_GETNAME(line.rstrip())
         else:
-            self.handle_CHAT(line)
+            self.handle_CHAT(line.rstrip())
 
     def handle_GETNAME(self, name):
         if name in self.users:
@@ -43,11 +43,11 @@ class IRC(LineReceiver):
         self.users[name] = self
         self.state = "CHAT"
         logger.debug("User " + name + " added to chat.")
-        announcement = self.serverMessage + name + " has joined."
+        announcement = "[Server] " + name + " has joined."
         self.announce(announcement)
 
     def handle_CHAT(self, message):
-        toSend = "%s <%s> %s" % (strftime("%H:%M:%S", gmtime()), self.name, message)
+        toSend = "%s <%s> %s" % (strftime("%H:%M:%S", localtime()), self.name, message)
         for name, protocol in self.users.iteritems():
             if protocol != self:
                 protocol.sendLine(toSend)
@@ -70,7 +70,7 @@ logger.setLevel(logging.DEBUG)
 fh = logging.FileHandler("./server.log")
 logger.addHandler(fh)
 
-logger.debug("Server Started at " + datetime.now().isoformat())
+logger.debug("Server Started at " + strftime("%H:%M:%S", localtime()))
 
 
 
