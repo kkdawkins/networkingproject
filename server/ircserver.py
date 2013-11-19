@@ -7,6 +7,11 @@ import logging
 from time import localtime, strftime
 
 class IRC(LineReceiver):
+
+    CMD_HELP = 1
+    CMD_LIST = 2
+    CMD_ERR = -1
+
     def __init__(self, users):
         self.users = users
         self.name = None
@@ -47,6 +52,17 @@ class IRC(LineReceiver):
         self.announce(announcement)
 
     def handle_CHAT(self, message):
+        cmd = self.interpretCommand(message.split()[0]) # Command is before the first space
+        if cmd == CMD_HELP:
+            handle_help(self)
+
+    def handle_help(self):
+        self.sendLine("Displaying help for CS525 IRC")
+        self.sendLine("Command                   Result")
+        self.sendLine("/help                     Shows avaliable commands")
+        self.sendLine("/list                     Lists avaliable channels")
+
+    def distrubute(self, message):
         toSend = "%s <%s> %s" % (strftime("%H:%M:%S", localtime()), self.name, message)
         for name, protocol in self.users.iteritems():
             if protocol != self:
@@ -56,6 +72,15 @@ class IRC(LineReceiver):
         for name, protocol in self.users.iteritems():
             if protocol != self:
                 protocol.sendLine(message)
+
+    def interpretCommand(command):
+        command = command.lower()
+        if command == "/list":
+            return CMD_LIST
+        elif command == "/help":
+            return CMD_HELP
+        else:
+            return CMD_ERR;
 
 class IRCFactory(protocol.Factory):
     def __init__(self):
