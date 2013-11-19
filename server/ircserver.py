@@ -8,10 +8,6 @@ from time import localtime, strftime
 
 class IRC(LineReceiver):
 
-    CMD_HELP = 1
-    CMD_LIST = 2
-    CMD_ERR = -1
-
     def __init__(self, users):
         self.users = users
         self.name = None
@@ -53,8 +49,8 @@ class IRC(LineReceiver):
 
     def handle_CHAT(self, message):
         cmd = self.interpretCommand(message.split()[0]) # Command is before the first space
-        if cmd == CMD_HELP:
-            handle_help(self)
+        if cmd == 2:
+            self.handle_help()
 
     def handle_help(self):
         self.sendLine("Displaying help for CS525 IRC")
@@ -73,14 +69,14 @@ class IRC(LineReceiver):
             if protocol != self:
                 protocol.sendLine(message)
 
-    def interpretCommand(command):
+    def interpretCommand(self, command):
         command = command.lower()
         if command == "/list":
-            return CMD_LIST
+            return 1
         elif command == "/help":
-            return CMD_HELP
+            return 2
         else:
-            return CMD_ERR;
+            return -1
 
 class IRCFactory(protocol.Factory):
     def __init__(self):
