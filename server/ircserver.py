@@ -87,6 +87,7 @@ class IRC(LineReceiver):
         self.sendLine("Command                   Result")
         self.sendLine("/help                     Shows avaliable commands")
         self.sendLine("/list                     Lists avaliable channels")
+        self.sendLine("/join <channel>           Joins (or creates) channel")
 
     def distrubute(self, message):
         toSend = "%s <%s> %s" % (strftime("%H:%M:%S", localtime()), self.name, message)
