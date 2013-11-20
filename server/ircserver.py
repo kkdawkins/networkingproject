@@ -63,6 +63,20 @@ class IRC(LineReceiver):
             self.handle_help()
         elif cmd == 3:
             self.handle_join(splitCommand[1])
+        elif cmd == 4:
+            self.handle_privMsg(splitCommand[1])
+        else:
+            self.sendLine("You entered an incorrect command")
+            self.sendLine("Plese refer to /help for avaliable commands")
+
+    def handle_privMsg(self, msg):
+        msg = split(msg,":")
+        if msg[0] in self.myChannels:
+            #send the message to that channel
+        elif msg[0] in self.users:
+            #send the message to that user
+        else:
+            self.sendLine("Target of private message not found.")
 
     def handle_join(self, ch):
         if ch in self.channels:
@@ -108,6 +122,8 @@ class IRC(LineReceiver):
             return 2
         elif command == "/join":
             return 3
+        elif comand == "/privmsg":
+            return 4
         else:
             return -1
 
