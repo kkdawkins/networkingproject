@@ -68,7 +68,7 @@ class IRC(LineReceiver):
             self.myChannels.append(ch)
 
         self.sendLine(ch + ":Welcome to the channel " + ch)
-        self.sendLine(ch + ":There are also X users here")
+        self.sendLine(ch + ":There are also " + str(self.channels[ch] - 1) + " other users here") # -1 because we dont want to count ourself!
 
 
     def handle_list(self):
