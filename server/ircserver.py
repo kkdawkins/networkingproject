@@ -73,7 +73,7 @@ class IRC(LineReceiver):
         self.sendLine("Displaying currently created channels")
         self.sendLine("use /join <channel> to join one or create your own!")
         for ch in self.channels:
-            self.sendLine(ch + " " + self.channels[ch] + " users")
+            self.sendLine(ch + " " + str(self.channels[ch]) + " users")
 
     def handle_help(self):
         self.sendLine("Displaying help for CS525 IRC")
