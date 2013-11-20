@@ -61,13 +61,21 @@ class IRC(LineReceiver):
             self.handle_list()
         elif cmd == 2:
             self.handle_help()
-        elif cmd == 3:
+        elif cmd == 3 and len(splitCommand) > 1:
             self.handle_join(splitCommand[1])
-        elif cmd == 4:
+        elif cmd == 4 and len(splitCommand) > 1:
             self.handle_privMsg(splitCommand[1])
+        elif cmd == 5 and len(splitCommand) > 1:
+            self.handle_names(splitCommand[1])
         else:
-            self.sendLine("You entered an incorrect command")
+            self.sendLine("You entered an incorrect/invalid command")
             self.sendLine("Plese refer to /help for avaliable commands")
+
+    def handle_names(self, ch):
+        self.sendLine("The following people are in " + ch + ":")
+        for name, myChannels in self.users.iteritems():
+            if ch in myChannels:
+                self.sendLine(name)
 
     def handle_privMsg(self, msg):
         msg = split(msg,":")
@@ -104,6 +112,7 @@ class IRC(LineReceiver):
         self.sendLine("/help                     Shows avaliable commands")
         self.sendLine("/list                     Lists avaliable channels")
         self.sendLine("/join <channel>           Joins (or creates) channel")
+        self.sendLine("/names <channel>          Returns who is in the channel")
 
     def distrubute(self, message):
         toSend = "%s <%s> %s" % (strftime("%H:%M:%S", localtime()), self.name, message)
@@ -126,6 +135,8 @@ class IRC(LineReceiver):
             return 3
         elif comand == "/privmsg":
             return 4
+        elif command == "/names":
+            return 5
         else:
             return -1
 
