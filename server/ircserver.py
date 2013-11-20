@@ -24,6 +24,11 @@ class IRC(LineReceiver):
 
     def connectionLost(self,reason):
         if(self.name in self.users):
+            for ch in myChannels:
+                self.channels[ch] = self.channels[ch] - 1
+                if(self.channels[ch] == 0):
+                    del self.channels[ch]
+            self.myChannels = []
             del self.users[self.name]
             logger.debug("Connection was lost with " + self.name)
             announcement = self.serverMessage + self.name + " has quit."
