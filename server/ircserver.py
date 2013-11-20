@@ -63,11 +63,13 @@ class IRC(LineReceiver):
         if ch in self.channels:
             self.myChannels.append(ch)
             self.channels[ch] = self.channels[ch] + 1 # increment the users by one
-            self.sendLine(ch + ":Welcome to the channel " + ch)
-            self.sendLine(ch + ":There are also X users here")
         else:
             self.channels[ch] = 1
             self.myChannels.append(ch)
+
+        self.sendLine(ch + ":Welcome to the channel " + ch)
+        self.sendLine(ch + ":There are also X users here")
+
 
     def handle_list(self):
         self.sendLine("Displaying currently created channels")
