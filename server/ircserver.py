@@ -133,7 +133,7 @@ class IRC(LineReceiver):
             return 2
         elif command == "/join":
             return 3
-        elif comand == "/privmsg":
+        elif command == "/privmsg":
             return 4
         elif command == "/names":
             return 5
