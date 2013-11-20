@@ -72,8 +72,10 @@ class IRC(LineReceiver):
     def handle_privMsg(self, msg):
         msg = split(msg,":")
         if msg[0] in self.myChannels:
+            return
             #send the message to that channel
         elif msg[0] in self.users:
+            return
             #send the message to that user
         else:
             self.sendLine("Target of private message not found.")
