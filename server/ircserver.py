@@ -24,7 +24,7 @@ class IRC(LineReceiver):
 
     def connectionLost(self,reason):
         if(self.name in self.users):
-            for ch in myChannels:
+            for ch in self.myChannels:
                 self.channels[ch] = self.channels[ch] - 1
                 if(self.channels[ch] == 0):
                     del self.channels[ch]
