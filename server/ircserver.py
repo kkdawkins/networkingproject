@@ -8,8 +8,10 @@ from time import localtime, strftime
 
 class IRC(LineReceiver):
 
-    def __init__(self, users):
+    def __init__(self, users, channels):
         self.users = users
+        self.channels = channels
+        self.myChannels = []
         self.name = None
         self.state = "GETNAME"
         self.serverMessage = "" + strftime("%H:%M:%S", localtime()) + " [Server] " # Global server message, only have to calc once
@@ -48,9 +50,30 @@ class IRC(LineReceiver):
         self.announce(announcement)
 
     def handle_CHAT(self, message):
-        cmd = self.interpretCommand(message.split()[0]) # Command is before the first space
-        if cmd == 2:
+        splitCommand = message.split()
+        cmd = self.interpretCommand(splitCommand[0]) # Command is before the first space
+        if cmd == 1:
+            self.handle_list()
+        elif cmd == 2:
             self.handle_help()
+        elif cmd == 3:
+            self.handle_join(splitCommand[1])
+
+    def handle_join(self, ch):
+        if ch in self.channels:
+            self.myChannels.append(ch)
+            self.channels[ch] = self.channels[ch] + 1 # increment the users by one
+            self.sendLine(ch + ":Welcome to the channel " + ch)
+            self.sendLine(ch + ":There are also X users here")
+        else:
+            self.channels[ch] = 1
+            self.myChannels.append(ch)
+
+    def handle_list(self):
+        self.sendLine("Displaying currently created channels")
+        self.sendLine("use /join <channel> to join one or create your own!")
+        for ch in self.channels:
+            self.sendLine(ch)
 
     def handle_help(self):
         self.sendLine("Displaying help for CS525 IRC")
@@ -75,15 +98,18 @@ class IRC(LineReceiver):
             return 1
         elif command == "/help":
             return 2
+        elif command == "/join":
+            return 3
         else:
             return -1
 
 class IRCFactory(protocol.Factory):
     def __init__(self):
         self.users = {}
+        self.channels = {}
     
     def buildProtocol(self, addr):
-        return IRC(self.users)
+        return IRC(self.users, self.channels)
 
 
 logger = logging.getLogger()
