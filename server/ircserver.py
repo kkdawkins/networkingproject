@@ -8,9 +8,10 @@ from time import localtime, strftime
 
 class IRC(LineReceiver):
 
-    def __init__(self, users, channels):
+    def __init__(self, users, channels, channelNames):
         self.users = users
         self.channels = channels
+        self.channelNames = channelNames
         self.myChannels = []
         self.name = None
         self.state = "GETNAME"
@@ -73,9 +74,8 @@ class IRC(LineReceiver):
 
     def handle_names(self, ch):
         self.sendLine("The following people are in " + ch + ":")
-        for name, myChannels in self.users.iteritems():
-            if ch in myChannels:
-                self.sendLine(name)
+        for name in self.channelNames[ch].iteritems():
+            self.sendLine(name)
 
     def handle_privMsg(self, msg):
         msg = split(msg,":")
@@ -89,12 +89,15 @@ class IRC(LineReceiver):
             self.sendLine("Target of private message not found.")
 
     def handle_join(self, ch):
-        if ch in self.channels:
+        if ch in self.channels: 
             self.myChannels.append(ch)
             self.channels[ch] = self.channels[ch] + 1 # increment the users by one
-        else:
+            self.channelNames.append(self.name) # shouldnt need to append since a list is initialized on creation
+        else: # if it is in self.channels, it is in self.channelNames ... lol :-)
             self.channels[ch] = 1
             self.myChannels.append(ch)
+            self.channelNames[ch] = list()
+            self.channelNames.append(self.name)
 
         self.sendLine(ch + ":Welcome to the channel " + ch)
         self.sendLine(ch + ":There are also " + str(self.channels[ch] - 1) + " other users here") # -1 because we dont want to count ourself!
@@ -144,9 +147,10 @@ class IRCFactory(protocol.Factory):
     def __init__(self):
         self.users = {}
         self.channels = {}
+        self.channelNames = {}
     
     def buildProtocol(self, addr):
-        return IRC(self.users, self.channels)
+        return IRC(self.users, self.channels, self.channelNames)
 
 
 logger = logging.getLogger()
