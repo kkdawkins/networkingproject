@@ -82,7 +82,7 @@ class IRC(LineReceiver):
             self.sendLine(name)
 
     def handle_privMsg(self, msg):
-        msg = split(msg,":")
+        msg = msg.split(":")
         if msg[0] in self.myChannels:
             #send the message to that channel
             for name in self.channelNames[msg[0]]:
