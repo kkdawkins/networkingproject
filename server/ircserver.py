@@ -59,6 +59,8 @@ class IRC(LineReceiver):
 
     def handle_CHAT(self, message):
         splitCommand = message.split()
+        if len(splitCommand) == 0:
+            return
         cmd = self.interpretCommand(splitCommand[0]) # Command is before the first space
         if cmd == 1:
             self.handle_list()
