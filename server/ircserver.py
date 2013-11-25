@@ -84,8 +84,10 @@ class IRC(LineReceiver):
     def handle_privMsg(self, msg):
         msg = split(msg,":")
         if msg[0] in self.myChannels:
-            return
             #send the message to that channel
+            for name in self.channelNames[msg[0]]:
+                proto = self.users[name]
+                proto.sendLine(msg[1])
         elif msg[0] in self.users:
             return
             #send the message to that user
