@@ -27,15 +27,17 @@ class IRC(LineReceiver):
         if(self.name in self.users):
             for ch in self.myChannels:
                 self.channels[ch] = self.channels[ch] - 1
+                self.channelNames[ch].remove(self.name)
                 if(self.channels[ch] == 0):
                     del self.channels[ch]
+                    del self.channelNames[ch]
             self.myChannels = []
             del self.users[self.name]
             logger.debug("Connection was lost with " + self.name)
             announcement = self.serverMessage + self.name + " has quit."
             self.announce(announcement)
         else:
-            logger.debug("Connection was lost with uknown")
+            logger.debug("Connection was lost with unknown")
 
     def lineReceived(self, line):
         if(self.state == "GETNAME"):
