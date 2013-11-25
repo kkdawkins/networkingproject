@@ -74,7 +74,7 @@ class IRC(LineReceiver):
 
     def handle_names(self, ch):
         self.sendLine("The following people are in " + ch + ":")
-        for name in self.channelNames[ch].iteritems():
+        for name in self.channelNames[ch]:
             self.sendLine(name)
 
     def handle_privMsg(self, msg):
