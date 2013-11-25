@@ -122,7 +122,7 @@ class IRC(LineReceiver):
         self.sendLine("/list                        Lists avaliable channels")
         self.sendLine("/join <channel>              Joins (or creates) channel")
         self.sendLine("/names <channel>             Returns who is in the channel")
-        self.sendLine("/privmsg <channel/user>:msg  Sends a message to a user or channel")
+        self.sendLine("/privmsg <channel>:msg       Sends a message to a user or channel")
 
     def distrubute(self, message):
         toSend = "%s <%s> %s" % (strftime("%H:%M:%S", localtime()), self.name, message)
