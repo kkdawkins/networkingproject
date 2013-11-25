@@ -92,12 +92,12 @@ class IRC(LineReceiver):
         if ch in self.channels: 
             self.myChannels.append(ch)
             self.channels[ch] = self.channels[ch] + 1 # increment the users by one
-            self.channelNames.append(self.name) # shouldnt need to append since a list is initialized on creation
+            self.channelNames[ch].append(self.name) # shouldnt need to append since a list is initialized on creation
         else: # if it is in self.channels, it is in self.channelNames ... lol :-)
             self.channels[ch] = 1
             self.myChannels.append(ch)
             self.channelNames[ch] = list()
-            self.channelNames.append(self.name)
+            self.channelNames[ch].append(self.name)
 
         self.sendLine(ch + ":Welcome to the channel " + ch)
         self.sendLine(ch + ":There are also " + str(self.channels[ch] - 1) + " other users here") # -1 because we dont want to count ourself!
