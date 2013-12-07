@@ -87,7 +87,7 @@ class IRC(LineReceiver):
             #send the message to that channel
             for name in self.channelNames[msg[0]]:
                 proto = self.users[name]
-                proto.sendLine(msg[1])
+                proto.sendLine(msg[0] + self.name + msg[1])
         elif msg[0] in self.users:
             return
             #send the message to that user
