@@ -69,7 +69,7 @@ class IRC(LineReceiver):
         elif cmd == 3 and len(splitCommand) > 1:
             self.handle_join(splitCommand[1])
         elif cmd == 4 and len(splitCommand) > 1:
-            self.handle_privMsg(' '.join(splitCommand[1:])
+            self.handle_privMsg(' '.join(splitCommand[1:]))
         elif cmd == 5 and len(splitCommand) > 1:
             self.handle_names(splitCommand[1])
         else:
