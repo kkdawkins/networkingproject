@@ -10,11 +10,12 @@ from time import localtime, strftime
 
 class IRC(LineReceiver):
 
-    def __init__(self, users, servers, channels, channelNames):
+    def __init__(self, users, servers, channels, channelNames, messageTriage):
         self.users = users
         self.servers = servers
         self.channels = channels
         self.channelNames = channelNames
+        self.messageTriage = messageTriage
         self.myChannels = []
         self.name = None
         self.state = "NEGOTIATE"
@@ -51,6 +52,9 @@ class IRC(LineReceiver):
     def handle_Negotiate(self, mytype):
         if(mytype == "server"):
             self.state = "server"
+            self.name = "server"
+            self.servers[self.name] = self
+            logger.debug("Server added to chat.")
         elif(mytype == "client"):
             self.state = "GETNAME"
             self.sendLine("[Server] ")
@@ -102,9 +106,12 @@ class IRC(LineReceiver):
             for name in self.channelNames[msg[0]]:
                 proto = self.users[name]
                 proto.sendLine(msg[0] + ":" + self.name + ":" + msg[1])
-        elif msg[0] in self.users:
+        elif (msg[0] in self.users) or (len(self.servers) > 0):
+            if len(self.servers) > 0:
+                # Ask the servers search:kdawkins
+                for name, protocol in self.servers.iteritems():
+                    protocol.sendLine("search:"+msg[0])
             return
-            #send the message to that user
         else:
             self.sendLine("Target of private message not found.")
 
@@ -170,9 +177,10 @@ class IRCFactory(protocol.Factory):
         self.servers = {}
         self.channels = {}
         self.channelNames = {}
+        self.messageTriage = []
 
     def buildProtocol(self, addr):
-        return IRC(self.users, self.servers, self.channels, self.channelNames)
+        return IRC(self.users, self.servers, self.channels, self.channelNames, self.messageTriage)
 
 
 logger = logging.getLogger()
