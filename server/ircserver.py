@@ -7,8 +7,12 @@ import logging
 from time import localtime, strftime
 
 class IRC(LineReceiver):
-    def __init__(self, users):
+
+    def __init__(self, users, channels, channelNames):
         self.users = users
+        self.channels = channels
+        self.channelNames = channelNames
+        self.myChannels = []
         self.name = None
         self.state = "GETNAME"
         self.serverMessage = "" + strftime("%H:%M:%S", localtime()) + " [Server] " # Global server message, only have to calc once
@@ -21,12 +25,19 @@ class IRC(LineReceiver):
 
     def connectionLost(self,reason):
         if(self.name in self.users):
+            for ch in self.myChannels:
+                self.channels[ch] = self.channels[ch] - 1
+                self.channelNames[ch].remove(self.name)
+                if(self.channels[ch] == 0):
+                    del self.channels[ch]
+                    del self.channelNames[ch]
+            self.myChannels = []
             del self.users[self.name]
             logger.debug("Connection was lost with " + self.name)
             announcement = self.serverMessage + self.name + " has quit."
             self.announce(announcement)
         else:
-            logger.debug("Connection was lost with uknown")
+            logger.debug("Connection was lost with unknown")
 
     def lineReceived(self, line):
         if(self.state == "GETNAME"):
@@ -47,6 +58,73 @@ class IRC(LineReceiver):
         self.announce(announcement)
 
     def handle_CHAT(self, message):
+        splitCommand = message.split()
+        if len(splitCommand) == 0:
+            return
+        cmd = self.interpretCommand(splitCommand[0]) # Command is before the first space
+        if cmd == 1:
+            self.handle_list()
+        elif cmd == 2:
+            self.handle_help()
+        elif cmd == 3 and len(splitCommand) > 1:
+            self.handle_join(splitCommand[1])
+        elif cmd == 4 and len(splitCommand) > 1:
+            self.handle_privMsg(' '.join(splitCommand[1:]))
+        elif cmd == 5 and len(splitCommand) > 1:
+            self.handle_names(splitCommand[1])
+        else:
+            self.sendLine("You entered an incorrect/invalid command")
+            self.sendLine("Plese refer to /help for avaliable commands")
+
+    def handle_names(self, ch):
+        self.sendLine("The following people are in " + ch + ":")
+        for name in self.channelNames[ch]:
+            self.sendLine(name)
+
+    def handle_privMsg(self, msg):
+        msg = msg.split(":")
+        if msg[0] in self.myChannels:
+            #send the message to that channel
+            for name in self.channelNames[msg[0]]:
+                proto = self.users[name]
+                proto.sendLine(msg[0] + ":" + self.name + ":" + msg[1])
+        elif msg[0] in self.users:
+            return
+            #send the message to that user
+        else:
+            self.sendLine("Target of private message not found.")
+
+    def handle_join(self, ch):
+        if ch in self.channels: 
+            self.myChannels.append(ch)
+            self.channels[ch] = self.channels[ch] + 1 # increment the users by one
+            self.channelNames[ch].append(self.name) # shouldnt need to append since a list is initialized on creation
+        else: # if it is in self.channels, it is in self.channelNames ... lol :-)
+            self.channels[ch] = 1
+            self.myChannels.append(ch)
+            self.channelNames[ch] = list()
+            self.channelNames[ch].append(self.name)
+
+        self.sendLine(ch + ":Welcome to the channel " + ch)
+        self.sendLine(ch + ":There are also " + str(self.channels[ch] - 1) + " other users here") # -1 because we dont want to count ourself!
+
+
+    def handle_list(self):
+        self.sendLine("Displaying currently created channels")
+        self.sendLine("use /join <channel> to join one or create your own!")
+        for ch in self.channels:
+            self.sendLine(ch + " " + str(self.channels[ch]) + " users")
+
+    def handle_help(self):
+        self.sendLine("Displaying help for CS525 IRC")
+        self.sendLine("Command                      Result")
+        self.sendLine("/help                        Shows avaliable commands")
+        self.sendLine("/list                        Lists avaliable channels")
+        self.sendLine("/join <channel>              Joins (or creates) channel")
+        self.sendLine("/names <channel>             Returns who is in the channel")
+        self.sendLine("/privmsg <channel>:msg       Sends a message to a user or channel")
+
+    def distrubute(self, message):
         toSend = "%s <%s> %s" % (strftime("%H:%M:%S", localtime()), self.name, message)
         for name, protocol in self.users.iteritems():
             if protocol != self:
@@ -57,12 +135,29 @@ class IRC(LineReceiver):
             if protocol != self:
                 protocol.sendLine(message)
 
+    def interpretCommand(self, command):
+        command = command.lower()
+        if command == "/list":
+            return 1
+        elif command == "/help":
+            return 2
+        elif command == "/join":
+            return 3
+        elif command == "/privmsg":
+            return 4
+        elif command == "/names":
+            return 5
+        else:
+            return -1
+
 class IRCFactory(protocol.Factory):
     def __init__(self):
         self.users = {}
+        self.channels = {}
+        self.channelNames = {}
     
     def buildProtocol(self, addr):
-        return IRC(self.users)
+        return IRC(self.users, self.channels, self.channelNames)
 
 
 logger = logging.getLogger()
