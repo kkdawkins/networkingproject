@@ -6,6 +6,8 @@ import logging
 #from datetime import datetime
 from time import localtime, strftime
 
+
+
 class IRC(LineReceiver):
 
     def __init__(self, users, servers, channels, channelNames):
@@ -22,7 +24,7 @@ class IRC(LineReceiver):
         logger.debug("Connection was made, asking name")
         self.sendLine("004")
 
-    def connectionLost(self,reason):
+    def connectionLost(self):
         if(self.name in self.users):
             for ch in self.myChannels:
                 self.channels[ch] = self.channels[ch] - 1
@@ -107,7 +109,7 @@ class IRC(LineReceiver):
             self.sendLine("Target of private message not found.")
 
     def handle_join(self, ch):
-        if ch in self.channels: 
+        if ch in self.channels:
             self.myChannels.append(ch)
             self.channels[ch] = self.channels[ch] + 1 # increment the users by one
             self.channelNames[ch].append(self.name) # shouldnt need to append since a list is initialized on creation
@@ -168,7 +170,7 @@ class IRCFactory(protocol.Factory):
         self.servers = {}
         self.channels = {}
         self.channelNames = {}
-    
+
     def buildProtocol(self, addr):
         return IRC(self.users, self.servers, self.channels, self.channelNames)
 
