@@ -8,20 +8,19 @@ from time import localtime, strftime
 
 class IRC(LineReceiver):
 
-    def __init__(self, users, channels, channelNames):
+    def __init__(self, users, servers, channels, channelNames):
         self.users = users
+        self.servers = servers
         self.channels = channels
         self.channelNames = channelNames
         self.myChannels = []
         self.name = None
-        self.state = "GETNAME"
+        self.state = "NEGOTIATE"
         self.serverMessage = "" + strftime("%H:%M:%S", localtime()) + " [Server] " # Global server message, only have to calc once
 
     def connectionMade(self):
         logger.debug("Connection was made, asking name")
         self.sendLine("004")
-        self.sendLine("[Server] ")
-        self.sendLine("Whats your name?")
 
     def connectionLost(self,reason):
         if(self.name in self.users):
@@ -40,10 +39,23 @@ class IRC(LineReceiver):
             logger.debug("Connection was lost with unknown")
 
     def lineReceived(self, line):
-        if(self.state == "GETNAME"):
+        if(self.state == "NEGOTIATE"):
+            self.handle_Negotiate(line.rstrip())
+        elif(self.state == "GETNAME"):
             self.handle_GETNAME(line.rstrip())
         else:
             self.handle_CHAT(line.rstrip())
+
+    def handle_Negotiate(self, mytype):
+        if(mytype == "server"):
+            self.state = "server"
+        elif(mytype == "client"):
+            self.state = "GETNAME"
+            self.sendLine("[Server] ")
+            self.sendLine("Whats your name?")
+        else:
+            self.sendLine("[server] Unknown identification code.")
+
 
     def handle_GETNAME(self, name):
         if name in self.users:
@@ -153,11 +165,12 @@ class IRC(LineReceiver):
 class IRCFactory(protocol.Factory):
     def __init__(self):
         self.users = {}
+        self.servers = {}
         self.channels = {}
         self.channelNames = {}
     
     def buildProtocol(self, addr):
-        return IRC(self.users, self.channels, self.channelNames)
+        return IRC(self.users, self.servers, self.channels, self.channelNames)
 
 
 logger = logging.getLogger()
