@@ -192,7 +192,7 @@ class IRC(LineReceiver):
 
     def releaseTriage(self):
         for name,protocol in self.servers.iteritems():
-            if protocol.state == "clear":
+            if protocol.state == "cleared":
                 protocol.state = "server"
                 protocol.sendLine("From: " + self.messageTriage.f + " To:" + self.messageTriage.t + " ->" + self.messageTriage.message)
         #if(str(self.messageTriage.t) in self.users):
