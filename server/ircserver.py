@@ -14,12 +14,13 @@ class TriagedMessage():
 
 class IRC(LineReceiver):
 
-    def __init__(self, users, servers, channels, channelNames, messageTriage):
+    def __init__(self, users, servers, channels, channelNames, messageTriage, contribution_score):
         self.users = users
         self.servers = servers
         self.channels = channels
         self.channelNames = channelNames
         self.messageTriage = messageTriage
+        self.contribution_score = contribution_score
         self.myChannels = []
         self.name = None
         self.state = "NEGOTIATE"
@@ -53,12 +54,17 @@ class IRC(LineReceiver):
         elif(self.state == "SEARCH"):
             self.handle_SEARCH(line.rstrip())
         else:
+            if(self.state == "server" or self.state == "cleared"):
+                self.contribution_score = self.contribution_score + 1
             self.handle_CHAT(line.rstrip())
 
     def handle_SEARCH(self, resp):
         if resp == "yes":
             self.state = "cleared"
+            self.contribution_score = self.contribution_score - 1
             self.releaseTriage()
+            if self.contribution_score == 50:
+                logger.debug("A server's contribution score is at 50. Idling from chat.")
             
 
     def handle_Negotiate(self, mytype):
@@ -195,7 +201,7 @@ class IRC(LineReceiver):
         for user, triage in self.users.iteritems():
             if triage.messageTriage != None:
                 for name,protocol in self.servers.iteritems():
-                    if protocol.state == "cleared":
+                    if protocol.state == "cleared" and protocol.contribution_score > 50: 
                         protocol.state = "server"
                         protocol.sendLine("From: " + triage.messageTriage.f + " To:" + triage.messageTriage.t + " ->" + triage.messageTriage.message)
                 if(str(triage.messageTriage.t) in self.users):
@@ -212,9 +218,10 @@ class IRCFactory(protocol.Factory):
         self.channels = {}
         self.channelNames = {}
         self.messageTriage = None
+        self.contribution_score = 100
 
     def buildProtocol(self, addr):
-        return IRC(self.users, self.servers, self.channels, self.channelNames, self.messageTriage)
+        return IRC(self.users, self.servers, self.channels, self.channelNames, self.messageTriage, self.contribution_score)
 
 
 logger = logging.getLogger()
