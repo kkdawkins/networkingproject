@@ -57,8 +57,9 @@ class IRC(LineReceiver):
 
     def handle_SEARCH(self, resp):
         if resp == "yes":
-            self.releaseTriage()
             self.state = "cleared"
+            self.releaseTriage()
+            
 
     def handle_Negotiate(self, mytype):
         if(mytype == "server"):
