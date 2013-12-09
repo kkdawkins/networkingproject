@@ -118,6 +118,7 @@ class IRC(LineReceiver):
                 proto = self.users[name]
                 proto.sendLine(msg[0] + ":" + self.name + ":" + msg[1])
         elif (msg[0] in self.users) or (len(self.servers) > 0):
+            logger.debug("Trying to triage message from:" + self.name + " to:" + msg[0] + " msg:" + msg[1])
             self.messageTriage = TriagedMessage(self.name, msg[0], msg[1])
             if len(self.servers) > 0:
                 # Ask the servers search:kdawkins
