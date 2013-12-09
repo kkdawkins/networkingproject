@@ -6,7 +6,11 @@ import logging
 #from datetime import datetime
 from time import localtime, strftime
 
-
+class TriagedMessage():
+    def __init__(self, f, t, message):
+        self.f = f
+        self.t = t
+        self.message = message
 
 class IRC(LineReceiver):
 
@@ -46,8 +50,15 @@ class IRC(LineReceiver):
             self.handle_Negotiate(line.rstrip())
         elif(self.state == "GETNAME"):
             self.handle_GETNAME(line.rstrip())
+        elif(self.state == "SEARCH"):
+            self.handle_SEARCH(line.rstrip())
         else:
             self.handle_CHAT(line.rstrip())
+
+    def handle_SEARCH(self, resp):
+        if resp == "yes":
+            self.releaseTriage()
+            self.state = "cleared"
 
     def handle_Negotiate(self, mytype):
         if(mytype == "server"):
@@ -107,11 +118,18 @@ class IRC(LineReceiver):
                 proto = self.users[name]
                 proto.sendLine(msg[0] + ":" + self.name + ":" + msg[1])
         elif (msg[0] in self.users) or (len(self.servers) > 0):
+            self.messageTriage = TriagedMessage(self.name, msg[0], msg[1])
             if len(self.servers) > 0:
                 # Ask the servers search:kdawkins
                 for name, protocol in self.servers.iteritems():
                     protocol.sendLine("search:"+msg[0])
-            return
+                    protocol.state = "SEARCH"
+                
+            elif msg[0] in self.users:
+                self.releaseTriage()
+            else:
+                self.sendLine("Error, user not found.")
+                self.messageTriage = None
         else:
             self.sendLine("Target of private message not found.")
 
@@ -171,13 +189,24 @@ class IRC(LineReceiver):
         else:
             return -1
 
+    def releaseTriage(self):
+        for name,protocol in self.servers.iteritems():
+            if protocol.state == "clear":
+                protocol.state = "server"
+                protocol.sendLine("From: " + self.messageTriage.f + " To:" + self.messageTriage.t + " ->" + self.messageTriage.message)
+        proto = self.users[self.messageTriage.t]
+        proto.sendLine("[" + self.messageTriage.f + "] " + self.messageTriage.message)
+        self.messageTriage = None # clear the triage
+
+
+
 class IRCFactory(protocol.Factory):
     def __init__(self):
         self.users = {}
         self.servers = {}
         self.channels = {}
         self.channelNames = {}
-        self.messageTriage = []
+        self.messageTriage = None
 
     def buildProtocol(self, addr):
         return IRC(self.users, self.servers, self.channels, self.channelNames, self.messageTriage)
