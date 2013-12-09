@@ -29,7 +29,7 @@ class IRC(LineReceiver):
         logger.debug("Connection was made, asking name")
         self.sendLine("004")
 
-    def connectionLost(self):
+    def connectionLost(self, reason):
         if(self.name in self.users):
             for ch in self.myChannels:
                 self.channels[ch] = self.channels[ch] - 1
