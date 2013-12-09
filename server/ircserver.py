@@ -195,9 +195,9 @@ class IRC(LineReceiver):
             if protocol.state == "clear":
                 protocol.state = "server"
                 protocol.sendLine("From: " + self.messageTriage.f + " To:" + self.messageTriage.t + " ->" + self.messageTriage.message)
-        if(str(self.messageTriage.t) in self.users):
-            proto = self.users[str(self.messageTriage.t)]
-            proto.sendLine("[" + self.messageTriage.f + "] " + self.messageTriage.message)
+        #if(str(self.messageTriage.t) in self.users):
+        #    proto = self.users[str(self.messageTriage.t)]
+        #    proto.sendLine("[" + self.messageTriage.f + "] " + self.messageTriage.message)
         self.messageTriage = None # clear the triage
 
 
